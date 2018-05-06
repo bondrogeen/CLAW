@@ -1,6 +1,7 @@
 package ru.codedevice.claw;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
@@ -14,31 +15,17 @@ import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.util.Log;
+import android.widget.Button;
+import android.widget.Toast;
 
-import org.eclipse.paho.android.service.MqttAndroidClient;
-import org.eclipse.paho.client.mqttv3.IMqttActionListener;
-import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
-import org.eclipse.paho.client.mqttv3.IMqttToken;
-import org.eclipse.paho.client.mqttv3.MqttCallback;
-import org.eclipse.paho.client.mqttv3.MqttClient;
-import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
-import org.eclipse.paho.client.mqttv3.MqttException;
-import org.eclipse.paho.client.mqttv3.MqttMessage;
-
-import java.io.UnsupportedEncodingException;
 
 public class MainActivity extends AppCompatActivity
         implements NavigationView.OnNavigationItemSelectedListener {
 
-    final String TAG = "Activiti";
-    final String serverUri = "tcp://192.168.1.61:1883";
-    final String clientId = "CLAW";
-    final String subscriptionTopic = "sensor/+";
-    final String username = "admin";
-    final String password = "Ab110605";
-    MqttAndroidClient client;
-    MqttConnectOptions options;
-
+    Button mqttSend;
+    Button mqttStart;
+    Toast toast;
+    Intent intent;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -46,14 +33,29 @@ public class MainActivity extends AppCompatActivity
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-        fab.setOnClickListener(new View.OnClickListener() {
+//        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+//        fab.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View view) {
+//                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
+//                        .setAction("Action", null).show();
+//            }
+//        });
+
+        mqttStart = (Button) findViewById(R.id.mqtt_start);
+        mqttSend = (Button) findViewById(R.id.mqtt_send);
+
+        View.OnClickListener mqttStartOnClick = new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
-                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-                        .setAction("Action", null).show();
+            public void onClick(View v) {
+                toast = Toast.makeText(getApplicationContext(),
+                        "Click", Toast.LENGTH_SHORT);
+                toast.show();
+                startService(new Intent(MainActivity.this, MqttService.class));
             }
-        });
+        };
+
+        mqttStart.setOnClickListener(mqttStartOnClick);
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
@@ -106,119 +108,24 @@ public class MainActivity extends AppCompatActivity
         // Handle navigation view item clicks here.
         int id = item.getItemId();
 
-        if (id == R.id.nav_camera) {
-            initMQTT();
-        } else if (id == R.id.nav_gallery) {
-
-        } else if (id == R.id.nav_slideshow) {
-
-        } else if (id == R.id.nav_settings) {
-            Intent intent = new Intent(this, SettingsActivity.class);
+        if (id == R.id.nav_settings) {
+            intent = new Intent(this, SettingsActivity.class);
             startActivity(intent);
+        } else if (id == R.id.nav_iobroker) {
+            stopService(new Intent(this, MqttService.class));
+            intent = new Intent(Intent.ACTION_VIEW, Uri.parse("http://iobroker.net/new-site/"));
+            startActivity(intent);
+        } else if (id == R.id.nav_smart_home) {
+            stopService(new Intent(this, MqttService.class));
+            intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/SmartsHome"));
+            startActivity(intent);
+        } else if (id == R.id.nav_about) {
+
         }
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
         return true;
-    }
-
-    public void initMQTT() {
-        String clientId = MqttClient.generateClientId();
-        client = new MqttAndroidClient(this.getApplicationContext(), serverUri, clientId);
-        options = new MqttConnectOptions();
-        options.setAutomaticReconnect(true);
-        options.setUserName(username);
-        options.setPassword(password.toCharArray());
-        client.setCallback(new MqttCallback() {
-            @Override
-            public void connectionLost(Throwable throwable) {
-                Log.d(TAG, "connectionLost");
-            }
-            @Override
-            public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
-                Log.d(TAG,  mqttMessage.toString());
-            }
-            @Override
-            public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
-            }
-        });
-
-        connect();
-    }
-
-    public void pub() {
-        String topic = "foo/bar";
-        String payload = "the payload";
-        byte[] encodedPayload = new byte[0];
-        try {
-            encodedPayload = payload.getBytes("UTF-8");
-            MqttMessage message = new MqttMessage(encodedPayload);
-            client.publish(topic, message);
-        } catch (UnsupportedEncodingException | MqttException e) {
-            e.printStackTrace();
-        }
-    }
-    public void connect(){
-        try {
-            IMqttToken token = client.connect(options);
-            token.setActionCallback(new IMqttActionListener() {
-                @Override
-                public void onSuccess(IMqttToken asyncActionToken) {
-                    Log.d(TAG, "onSuccess");
-                    pub();
-                    setSubscribe();
-                }
-
-                @Override
-                public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                    Log.d(TAG, "onFailure");
-                }
-            });
-        } catch (MqttException e) {
-            e.printStackTrace();
-        }
-    }
-    public void disconnect(){
-        try {
-            IMqttToken token = client.disconnect();
-            token.setActionCallback(new IMqttActionListener() {
-                @Override
-                public void onSuccess(IMqttToken asyncActionToken) {
-                    Log.d(TAG, "disconnect");
-                }
-
-                @Override
-                public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                    Log.d(TAG, "not disconnect");
-                }
-            });
-        } catch (MqttException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void setSubscribe() {
-        String topic = "foo/bar";
-        int qos = 1;
-        try {
-            IMqttToken subToken = client.subscribe(topic, qos);
-            subToken.setActionCallback(new IMqttActionListener() {
-                @Override
-                public void onSuccess(IMqttToken asyncActionToken) {
-                    // The message was published
-                }
-
-                @Override
-                public void onFailure(IMqttToken asyncActionToken,
-                                      Throwable exception) {
-                    // The subscription could not be performed, maybe the user was not
-                    // authorized to subscribe on the specified topic e.g. using wildcards
-
-                }
-            });
-        } catch (MqttException e) {
-            e.printStackTrace();
-        }
     }
 
 }
