@@ -1,10 +1,12 @@
 package ru.codedevice.claw;
 
+import android.app.ActivityManager;
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
-import android.support.design.widget.FloatingActionButton;
-import android.support.design.widget.Snackbar;
 import android.view.View;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
@@ -16,16 +18,27 @@ import android.view.Menu;
 import android.view.MenuItem;
 import android.util.Log;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.Toast;
 
+public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
-public class MainActivity extends AppCompatActivity
-        implements NavigationView.OnNavigationItemSelectedListener {
-
-    Button mqttSend;
-    Button mqttStart;
-    Toast toast;
+    private String TAG = "MainActivity";
+    Button mqttSend, mqttStart;
+    EditText mqttTextTopic, mqttTextValue;
     Intent intent;
+    Toast toast;
+
+    private boolean isMyServiceRunning(Class<?> serviceClass) {
+        ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (serviceClass.getName().equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -44,18 +57,53 @@ public class MainActivity extends AppCompatActivity
 
         mqttStart = (Button) findViewById(R.id.mqtt_start);
         mqttSend = (Button) findViewById(R.id.mqtt_send);
-
+        mqttTextTopic = (EditText)findViewById(R.id.topic_text);
+        mqttTextValue = (EditText)findViewById(R.id.value_text);
         View.OnClickListener mqttStartOnClick = new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                toast = Toast.makeText(getApplicationContext(),
-                        "Click", Toast.LENGTH_SHORT);
-                toast.show();
+                Log.d(TAG,  "Start");
                 startService(new Intent(MainActivity.this, MqttService.class));
+
+            }
+        };
+
+        View.OnClickListener mqttSendOnClick = new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Log.d(TAG,  "Click button Send");
+
+                if(isMyServiceRunning(MqttService.class)){
+
+                    String topic = mqttTextTopic.getText().toString();
+                    String value = mqttTextValue.getText().toString();
+                    if (value.equals("")){
+                        toast = Toast.makeText(getApplicationContext(), "Fill in the fields 'value'", Toast.LENGTH_SHORT);
+                        toast.show();
+                        mqttTextValue.requestFocus();
+                    }
+                    if (topic.equals("")){
+                        toast = Toast.makeText(getApplicationContext(), "Fill in the fields 'topic'", Toast.LENGTH_SHORT);
+                        toast.show();
+                        mqttTextTopic.requestFocus();
+                    }
+
+                    if(!topic.equals("") && !value.equals("")){
+                        Intent service = new Intent(MainActivity.this, MqttService.class);
+                        service.putExtra("topic", topic);
+                        service.putExtra("value", value);
+                        startService(service);
+                    }
+
+                }else{
+                    toast = Toast.makeText(getApplicationContext(), "First, connect to the broker", Toast.LENGTH_SHORT);
+                    toast.show();
+                }
             }
         };
 
         mqttStart.setOnClickListener(mqttStartOnClick);
+        mqttSend.setOnClickListener(mqttSendOnClick);
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
@@ -66,6 +114,13 @@ public class MainActivity extends AppCompatActivity
         NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 
+        if(isMyServiceRunning(MqttService.class)){
+            Log.d(TAG,  "MqttService is run");
+            mqttStart.setBackgroundColor(Color.RED);
+        }else{
+            Log.d(TAG,  "MqttService is not run");
+            mqttStart.setBackgroundColor(Color.GREEN);
+        }
     }
 
     @Override
@@ -87,12 +142,8 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
         int id = item.getItemId();
 
-        //noinspection SimplifiableIfStatement
         if (id == R.id.action_settings) {
             Intent intent = new Intent(this, SettingsActivity.class);
             startActivity(intent);
@@ -105,7 +156,6 @@ public class MainActivity extends AppCompatActivity
     @SuppressWarnings("StatementWithEmptyBody")
     @Override
     public boolean onNavigationItemSelected(MenuItem item) {
-        // Handle navigation view item clicks here.
         int id = item.getItemId();
 
         if (id == R.id.nav_settings) {
@@ -128,4 +178,37 @@ public class MainActivity extends AppCompatActivity
         return true;
     }
 
+
+//
+//    public class MqttBroadcastReceiver extends BroadcastReceiver {
+//
+//        @Override
+//        public void onReceive(Context context, Intent intent) {
+//            String topic = intent.getStringExtra("topic");
+//            String value = intent.getStringExtra("value");
+//
+//            Log.d(TAG, "topic: " + topic);
+//            Log.d(TAG, "value: " + value);
+//
+////            if (topic.equals("relay")) {
+////                setLightIcon(value);
+////            }
+//
+//        }
+//    }
+
+    protected void onResume() {
+        super.onResume();
+    }
+
+    public void onPause() {
+        super.onPause();
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+    }
 }
+
+

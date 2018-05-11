@@ -75,4 +75,8 @@
     <string name="pref_ringtone_silent">Silent</string>
 
     <string name="pref_title_vibrate">Vibrate</string>
+    <string name="button_send_text">Send</string>
+    <string name="buttone_text_start">Start</string>
+    <string name="mqtt_text_topic">topic</string>
+    <string name="mqtt_text_value">value</string>
 </resources>

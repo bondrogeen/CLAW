@@ -6,6 +6,7 @@ import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
+import android.speech.tts.TextToSpeech;
 import android.util.Log;
 import android.widget.Toast;
 
@@ -14,22 +15,31 @@ import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
-import org.eclipse.paho.client.mqttv3.MqttClient;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import java.io.UnsupportedEncodingException;
+import java.util.Locale;
 
-public class MqttService extends Service {
+public class MqttService extends Service implements MqttCallback {
 
     final String TAG = "MqttService";
-
-    MqttAndroidClient client;
+    MqttAndroidClient MQTTclient;
     MqttConnectOptions options;
     SharedPreferences settings;
+    TextToSpeech tts;
     Toast toast;
+
     String clientId;
+    String server;
+    String port;
+    String serverUri;
+    String username;
+    String password;
+    Boolean run;
+    Boolean start;
+
     @Override
     public IBinder onBind(Intent intent) {
         throw new UnsupportedOperationException("Not yet implemented");
@@ -37,12 +47,25 @@ public class MqttService extends Service {
 
     public void onCreate() {
         super.onCreate();
+        initTTS();
+        initMQTT();
         Log.d(TAG, "onCreate");
     }
 
     public int onStartCommand(Intent intent, int flags, int startId) {
-        Log.d(TAG, "onStartCommand");
-        initMQTT();
+        Log.d(TAG, "startId :" + startId);
+        if (intent != null && intent.getExtras() != null) {
+            String topic = intent.getStringExtra("topic");
+            String value = intent.getStringExtra("value");
+            Log.d(TAG, "topic :" + topic);
+            Log.d(TAG, "value :" + value);
+            publish(topic, value);
+        } else {
+            if (start && !MQTTclient.isConnected()) {
+                connect();
+                Log.d(TAG, "Connect MQTT");
+            }
+        }
         return super.onStartCommand(intent, flags, startId);
     }
 
@@ -52,64 +75,60 @@ public class MqttService extends Service {
         disconnect();
     }
 
-    public void initMQTT() {
-        settings = PreferenceManager.getDefaultSharedPreferences(this);
-
-        final String server = settings.getString("mqtt_server", "");
-        final String port = settings.getString("mqtt_port", "");
-        final String serverUri = "tcp://"+server+":"+port;
-        final String username = settings.getString("mqtt_login", "");
-        final String password = settings.getString("mqtt_pass", "");
-        final Boolean run = settings.getBoolean("mqtt_run", false);
-        final Boolean start = settings.getBoolean("mqtt_switch", false);
-        clientId = "CLAW";
-//        final String subscriptionTopic = "sensor/+";
-
-//        String clientId = MqttClient.generateClientId();
-
-        client = new MqttAndroidClient(this.getApplicationContext(), serverUri, clientId);
-        Log.i(TAG, "isConn: " + client.isConnected());
-        if (start && !client.isConnected()) {
-
-            options = new MqttConnectOptions();
-            options.setAutomaticReconnect(true);
-            options.setUserName(username);
-            options.setPassword(password.toCharArray());
-            client.setCallback(new MqttCallback() {
-                @Override
-                public void connectionLost(Throwable throwable) {
-                    Log.d(TAG, "connectionLost");
-                }
-
-                @Override
-                public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
-                    Log.d(TAG, mqttMessage.toString());
-                    Log.i(TAG, "isConn: " + client.isConnected());
-                }
-
-                @Override
-                public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
-                }
-            });
-                connect();
-        }
+    @Override
+    public void connectionLost(Throwable throwable) {
+        Log.d(TAG, "connectionLost");
     }
 
-    public void publish(String topic,String payload) {
-//        String topic = "foo/bar";
-//        String payload = "the payload";
+    @Override
+    public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
+        Log.d(TAG, "topic: "+topic + " value: "+mqttMessage);
+        Log.d(TAG, mqttMessage.toString());
+        Log.i(TAG, "isConn: " + MQTTclient.isConnected());
+        if (topic.equals(clientId+"/tts/request")){
+            tts.speak(mqttMessage.toString(), TextToSpeech.QUEUE_FLUSH, null);
+        }
+
+    }
+
+    @Override
+    public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
+    }
+
+    public void initMQTT() {
+        settings = PreferenceManager.getDefaultSharedPreferences(this);
+        server = settings.getString("mqtt_server", "");
+        port = settings.getString("mqtt_port", "");
+        serverUri = "tcp://" + server + ":" + port;
+        username = settings.getString("mqtt_login", "");
+        password = settings.getString("mqtt_pass", "");
+        run = settings.getBoolean("mqtt_run", false);
+        start = settings.getBoolean("mqtt_switch", false);
+        clientId = "CLAW";
+
+        MQTTclient = new MqttAndroidClient(this.getApplicationContext(), serverUri, clientId);
+        Log.i(TAG, "isConn: " + MQTTclient.isConnected());
+        options = new MqttConnectOptions();
+        options.setAutomaticReconnect(true);
+        options.setUserName(username);
+        options.setPassword(password.toCharArray());
+        MQTTclient.setCallback(this);
+    }
+
+    public void publish(String topic, String payload) {
         byte[] encodedPayload = new byte[0];
         try {
             encodedPayload = payload.getBytes("UTF-8");
             MqttMessage message = new MqttMessage(encodedPayload);
-            client.publish(clientId+"/"+topic, message);
+            MQTTclient.publish(clientId + "/" + topic, message);
         } catch (UnsupportedEncodingException | MqttException e) {
             e.printStackTrace();
         }
     }
-    public void connect(){
+
+    public void connect() {
         try {
-            IMqttToken token = client.connect(options);
+            IMqttToken token = MQTTclient.connect(options);
             token.setActionCallback(new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
@@ -133,11 +152,11 @@ public class MqttService extends Service {
             e.printStackTrace();
         }
     }
-    public void disconnect(){
 
-        if(client.isConnected()) {
+    public void disconnect() {
+        if (MQTTclient.isConnected()) {
             try {
-                IMqttToken token = client.disconnect();
+                IMqttToken token = MQTTclient.disconnect();
                 token.setActionCallback(new IMqttActionListener() {
                     @Override
                     public void onSuccess(IMqttToken asyncActionToken) {
@@ -156,18 +175,18 @@ public class MqttService extends Service {
     }
 
     private void pubOne() {
-        publish("info/BRAND",Build.BRAND);
-        publish("info/MANUFACTURER",Build.MANUFACTURER);
-        publish("info/MODEL",Build.MODEL);
-        publish("info/PRODUCT",Build.PRODUCT);
-        publish("test","");
+        publish("info/BRAND", Build.BRAND);
+        publish("info/MANUFACTURER", Build.MANUFACTURER);
+        publish("info/MODEL", Build.MODEL);
+        publish("info/PRODUCT", Build.PRODUCT);
+        publish("tts/request", "");
     }
 
     private void setSubscribe() {
-        String topic = "test";
+        String topic = "tts/request";
         int qos = 1;
         try {
-            IMqttToken subToken = client.subscribe(clientId+"/"+topic, qos);
+            IMqttToken subToken = MQTTclient.subscribe(clientId + "/" + topic, qos);
             subToken.setActionCallback(new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
@@ -177,13 +196,27 @@ public class MqttService extends Service {
                 @Override
                 public void onFailure(IMqttToken asyncActionToken,
                                       Throwable exception) {
-                    // The subscription could not be performed, maybe the user was not
-                    // authorized to subscribe on the specified topic e.g. using wildcards
-
                 }
             });
         } catch (MqttException e) {
             e.printStackTrace();
         }
     }
+
+
+
+    private void initTTS() {
+        tts = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if (status != TextToSpeech.ERROR) {
+//                    tts.setLanguage(Locale.RU);
+                    tts.setLanguage(Locale.getDefault());
+                }
+            }
+        });
+    }
+
+
+
 }

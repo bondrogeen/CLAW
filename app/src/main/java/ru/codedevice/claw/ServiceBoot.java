@@ -22,7 +22,7 @@ public class ServiceBoot extends BroadcastReceiver {
 //            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 //            context.startActivity(i);
             Log.i(TAG, "Autostart CLAW");
-            context.startService(new Intent(context, MqttService.class));
+//            context.startService(new Intent(context, MqttService.class));
         }
 
 }
