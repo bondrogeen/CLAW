@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<android.support.constraint.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context="ru.codedevice.claw.AboutActivity">
+
+    <TextView
+        android:id="@+id/text_view_about"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:text="@string/adout"
+        android:textColor="@color/textbody"
+        android:padding="16dp"
+        android:textSize="20sp"
+        android:gravity="center"
+        />
+
+    <TextView
+        android:padding="5dp"
+        android:id="@+id/text_view_LinkGitHub"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:gravity="center"
+        android:text="@string/LinkGit"
+        app:layout_constraintBottom_toTopOf="@id/text_view_LinkDonations"
+        android:textSize="20sp"
+        />
+
+    <TextView
+        android:padding="5dp"
+        android:id="@+id/text_view_LinkDonations"
+        android:layout_height="wrap_content"
+        android:layout_width="wrap_content"
+        android:text="@string/LinkDonations"
+        android:textSize="20sp"
+        android:gravity="center"
+        app:layout_constraintBottom_toBottomOf="parent"/>
+        />
+
+</android.support.constraint.ConstraintLayout>

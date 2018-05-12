@@ -1,18 +1,17 @@
 package ru.codedevice.claw;
 
 import android.app.Service;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Build;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.util.Log;
-import android.widget.Button;
 import android.widget.Toast;
 
 import org.eclipse.paho.android.service.MqttAndroidClient;
@@ -61,6 +60,12 @@ public class MqttService extends Service implements MqttCallback {
         Log.d(TAG, "onCreate");
     }
 
+    public boolean checkInternet() {
+        ConnectivityManager cm = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
+        return activeNetwork != null && activeNetwork.isConnected();
+    }
+
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "startId :" + startId);
         if (intent != null && intent.getExtras() != null) {
@@ -70,9 +75,26 @@ public class MqttService extends Service implements MqttCallback {
             Log.d(TAG, "value :" + value);
             publish(topic, value);
         } else {
-            if (start && !MQTTclient.isConnected()) {
+            Boolean net = checkInternet();
+            if (start && !MQTTclient.isConnected() && net) {
                 connect();
                 Log.d(TAG, "Connect MQTT");
+            }else{
+                if (!start) {
+                    toast = Toast.makeText(getApplicationContext(),
+                            "Enable MQTT settings", Toast.LENGTH_SHORT);
+                    toast.show();
+                    sendBrodecast("noEnable");
+                    stopSelf();
+                }
+                if(!net){
+                    toast = Toast.makeText(getApplicationContext(),
+                            "No network connection", Toast.LENGTH_SHORT);
+                    toast.show();
+                    sendBrodecast("noNetwork");
+                    stopSelf();
+                }
+
             }
         }
         return super.onStartCommand(intent, flags, startId);
@@ -116,6 +138,7 @@ public class MqttService extends Service implements MqttCallback {
     }
 
     public void initMQTT() {
+        Log.i(TAG, "Start initMQTT");
         settings = PreferenceManager.getDefaultSharedPreferences(this);
         server = settings.getString("mqtt_server", "");
         port = settings.getString("mqtt_port", "");
@@ -127,7 +150,6 @@ public class MqttService extends Service implements MqttCallback {
         clientId = "CLAW";
 
         MQTTclient = new MqttAndroidClient(this.getApplicationContext(), serverUri, clientId);
-        Log.i(TAG, "isConn: " + MQTTclient.isConnected());
         options = new MqttConnectOptions();
         options.setAutomaticReconnect(true);
         options.setUserName(username);
@@ -187,6 +209,7 @@ public class MqttService extends Service implements MqttCallback {
                                 "Disconnect", Toast.LENGTH_SHORT);
                         toast.show();
                         Log.d(TAG, "Disconnect success");
+                        sendBrodecast("disconnect");
                     }
 
                     @Override
@@ -195,6 +218,7 @@ public class MqttService extends Service implements MqttCallback {
                         toast = Toast.makeText(getApplicationContext(),
                                 "Disconnect failure", Toast.LENGTH_SHORT);
                         toast.show();
+                        sendBrodecast("disconnectFailure");
                     }
                 });
             } catch (MqttException e) {

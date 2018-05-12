@@ -24,9 +24,8 @@ import android.widget.Toast;
 
 public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
-    private String TAG = "MainActivity";
+    private String TAG = "ClawMainActivity";
     public final static String BROADCAST_ACTION = "ru.codedevice.claw";
-    public final static String PARAM_TASK = "task";
     public final static String PARAM_STATUS = "status";
 
     BroadcastReceiver br;
@@ -49,22 +48,13 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
+        Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
 
-//        FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
-//        fab.setOnClickListener(new View.OnClickListener() {
-//            @Override
-//            public void onClick(View view) {
-//                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
-//                        .setAction("Action", null).show();
-//            }
-//        });
-
-        mqttStart = (Button) findViewById(R.id.mqtt_start);
-        mqttSend = (Button) findViewById(R.id.mqtt_send);
-        mqttTextTopic = (EditText)findViewById(R.id.topic_text);
-        mqttTextValue = (EditText)findViewById(R.id.value_text);
+        mqttStart = findViewById(R.id.mqtt_start);
+        mqttSend =  findViewById(R.id.mqtt_send);
+        mqttTextTopic = findViewById(R.id.topic_text);
+        mqttTextValue = findViewById(R.id.value_text);
         View.OnClickListener mqttStartOnClick = new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -72,12 +62,11 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 if(isMyServiceRunning(MqttService.class)){
                     stopService(new Intent(MainActivity.this, MqttService.class));
                     mqttStart.setBackgroundColor(Color.GREEN);
-                    mqttStart.setText("Start");
+                    mqttStart.setText(R.string.textButtonStart_start);
                 }else{
                     startService(new Intent(MainActivity.this, MqttService.class));
                 }
                 mqttStart.setEnabled(false);
-//                mqttStart.setClickable(false);
             }
         };
 
@@ -85,9 +74,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             @Override
             public void onClick(View v) {
                 Log.d(TAG,  "Click button Send");
-
                 if(isMyServiceRunning(MqttService.class)){
-
                     String topic = mqttTextTopic.getText().toString();
                     String value = mqttTextValue.getText().toString();
                     if (value.equals("")){
@@ -118,23 +105,25 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         mqttStart.setOnClickListener(mqttStartOnClick);
         mqttSend.setOnClickListener(mqttSendOnClick);
 
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        DrawerLayout drawer = findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
                 this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
         drawer.addDrawerListener(toggle);
         toggle.syncState();
 
-        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        NavigationView navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 
         if(isMyServiceRunning(MqttService.class)){
             Log.d(TAG,  "MqttService is run");
             mqttStart.setBackgroundColor(Color.RED);
-            mqttStart.setText("Stop");
+            mqttStart.setText(R.string.R_string_textButtonStart_stop);
+            mqttSend.setEnabled(true);
         }else{
             Log.d(TAG,  "MqttService is not run");
             mqttStart.setBackgroundColor(Color.GREEN);
-            mqttStart.setText("Start");
+            mqttStart.setText(R.string.textButtonStart_start);
+            mqttSend.setEnabled(false);
         }
 
         initBrodecast();
@@ -142,7 +131,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
     @Override
     public void onBackPressed() {
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        DrawerLayout drawer = findViewById(R.id.drawer_layout);
         if (drawer.isDrawerOpen(GravityCompat.START)) {
             drawer.closeDrawer(GravityCompat.START);
         } else {
@@ -152,7 +141,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
         return true;
     }
@@ -164,7 +152,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if (id == R.id.action_settings) {
             Intent intent = new Intent(this, SettingsActivity.class);
             startActivity(intent);
-            return true;
+//            return true;
+        }
+        if (id == R.id.action_about) {
+            Intent intent = new Intent(this, AboutActivity.class);
+            startActivity(intent);
+//            return true;
         }
 
         return super.onOptionsItemSelected(item);
@@ -185,32 +178,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/SmartsHome"));
             startActivity(intent);
         } else if (id == R.id.nav_about) {
-
+            intent = new Intent(this, AboutActivity.class);
+            startActivity(intent);
         }
 
-        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        DrawerLayout drawer = findViewById(R.id.drawer_layout);
         drawer.closeDrawer(GravityCompat.START);
         return true;
     }
-
-
-//
-//    public class MqttBroadcastReceiver extends BroadcastReceiver {
-//
-//        @Override
-//        public void onReceive(Context context, Intent intent) {
-//            String topic = intent.getStringExtra("topic");
-//            String value = intent.getStringExtra("value");
-//
-//            Log.d(TAG, "topic: " + topic);
-//            Log.d(TAG, "value: " + value);
-//
-////            if (topic.equals("relay")) {
-////                setLightIcon(value);
-////            }
-//
-//        }
-//    }
 
     private void initBrodecast(){
         br = new BroadcastReceiver() {
@@ -219,14 +194,23 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 Log.i(TAG, "onReceive: status = " + status);
                 if(status.equals("Connection")){
                     mqttStart.setBackgroundColor(Color.RED);
-                    mqttStart.setText("Stop");
+                    mqttStart.setText(R.string.R_string_textButtonStart_stop);
                     mqttStart.setEnabled(true);
-//                    mqttStart.setClickable(true);
+                    mqttSend.setEnabled(true);
                 }
-                if(status.equals("ConnectionFailure")){
+                if(status.equals("ConnectionFailure")
+                        || status.equals("noEnable")
+                        || status.equals("disconnectFailure")
+                        || status.equals("disconnect")
+                        || status.equals("noNetwork")){
                     mqttStart.setEnabled(true);
-//                    mqttStart.setClickable(true);
+                    mqttSend.setEnabled(false);
+                    if (status.equals("noEnable")){
+                        intent = new Intent(MainActivity.this, SettingsActivity.class);
+                        startActivity(intent);
+                    }
                 }
+
             }
         };
 
