@@ -1,13 +1,18 @@
 package ru.codedevice.claw;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.IBinder;
 import android.preference.PreferenceManager;
 import android.speech.tts.TextToSpeech;
+import android.speech.tts.UtteranceProgressListener;
 import android.util.Log;
+import android.widget.Button;
 import android.widget.Toast;
 
 import org.eclipse.paho.android.service.MqttAndroidClient;
@@ -20,11 +25,13 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import java.io.UnsupportedEncodingException;
+import java.util.HashMap;
 import java.util.Locale;
 
 public class MqttService extends Service implements MqttCallback {
 
     final String TAG = "MqttService";
+
     MqttAndroidClient MQTTclient;
     MqttConnectOptions options;
     SharedPreferences settings;
@@ -39,6 +46,8 @@ public class MqttService extends Service implements MqttCallback {
     String password;
     Boolean run;
     Boolean start;
+    Boolean tts_OK;
+    Boolean tts_TIME;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -73,6 +82,10 @@ public class MqttService extends Service implements MqttCallback {
         super.onDestroy();
         Log.d(TAG, "onDestroy");
         disconnect();
+        if (tts != null) {
+            tts.shutdown();
+            tts = null;
+        }
     }
 
     @Override
@@ -81,12 +94,19 @@ public class MqttService extends Service implements MqttCallback {
     }
 
     @Override
-    public void messageArrived(String topic, MqttMessage mqttMessage) throws Exception {
-        Log.d(TAG, "topic: "+topic + " value: "+mqttMessage);
-        Log.d(TAG, mqttMessage.toString());
-        Log.i(TAG, "isConn: " + MQTTclient.isConnected());
+    public void messageArrived(String topic, MqttMessage message) throws Exception {
+        Log.d(TAG, "topic: "+topic + " value: "+message);
+        Log.d(TAG, message.toString());
+        if (message.equals("")){return;}
         if (topic.equals(clientId+"/tts/request")){
-            tts.speak(mqttMessage.toString(), TextToSpeech.QUEUE_FLUSH, null);
+            speakOut(message.toString());
+        }
+        if (topic.equals(clientId+"/tts/command")){
+            String mes = message.toString().toLowerCase();
+            if(mes.equals("stop")){
+
+            }
+
         }
 
     }
@@ -138,6 +158,7 @@ public class MqttService extends Service implements MqttCallback {
                     toast = Toast.makeText(getApplicationContext(),
                             "Connection", Toast.LENGTH_SHORT);
                     toast.show();
+                    sendBrodecast("Connection");
                 }
 
                 @Override
@@ -146,6 +167,8 @@ public class MqttService extends Service implements MqttCallback {
                     toast = Toast.makeText(getApplicationContext(),
                             "Connection Failure", Toast.LENGTH_SHORT);
                     toast.show();
+                    sendBrodecast("ConnectionFailure");
+                    stopSelf();
                 }
             });
         } catch (MqttException e) {
@@ -160,12 +183,18 @@ public class MqttService extends Service implements MqttCallback {
                 token.setActionCallback(new IMqttActionListener() {
                     @Override
                     public void onSuccess(IMqttToken asyncActionToken) {
-                        Log.d(TAG, "disconnect");
+                        toast = Toast.makeText(getApplicationContext(),
+                                "Disconnect", Toast.LENGTH_SHORT);
+                        toast.show();
+                        Log.d(TAG, "Disconnect success");
                     }
 
                     @Override
                     public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                        Log.d(TAG, "not disconnect");
+                        Log.d(TAG, "Disconnect failure");
+                        toast = Toast.makeText(getApplicationContext(),
+                                "Disconnect failure", Toast.LENGTH_SHORT);
+                        toast.show();
                     }
                 });
             } catch (MqttException e) {
@@ -180,10 +209,11 @@ public class MqttService extends Service implements MqttCallback {
         publish("info/MODEL", Build.MODEL);
         publish("info/PRODUCT", Build.PRODUCT);
         publish("tts/request", "");
+        publish("tts/command", "");
     }
 
     private void setSubscribe() {
-        String topic = "tts/request";
+        String topic = "tts/*";
         int qos = 1;
         try {
             IMqttToken subToken = MQTTclient.subscribe(clientId + "/" + topic, qos);
@@ -206,17 +236,61 @@ public class MqttService extends Service implements MqttCallback {
 
 
     private void initTTS() {
+        tts_OK = false;
         tts = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
-                if (status != TextToSpeech.ERROR) {
-//                    tts.setLanguage(Locale.RU);
-                    tts.setLanguage(Locale.getDefault());
+                if (status == TextToSpeech.SUCCESS) {
+                    int result = tts.setLanguage(Locale.getDefault());
+                    if (result == TextToSpeech.LANG_MISSING_DATA
+                            || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        Log.e("TTS", "This Language is not supported");
+                    } else {
+                        tts_OK = true;
+                        Log.i("TTS", "This Language is supported");
+                    }
+                } else {
+                    Log.e("TTS", "Initilization Failed!");
                 }
+
+
             }
         });
     }
 
+    private void speakOut(String text) {
+        if (tts_OK){
+            setTtsUtteranceProgressListener();
+            HashMap<String, String> map = new HashMap<>();
+            map.put(TextToSpeech.Engine.KEY_PARAM_UTTERANCE_ID,"messageID");
+            tts.speak(text, TextToSpeech.QUEUE_ADD, map);
+        }
+    }
 
+    private void setTtsUtteranceProgressListener() {
+        tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
+            @Override
+            public void onStart(String utteranceId) {
+                Log.i(TAG, "TTS onStart");
+            }
+
+            @Override
+            public void onDone(String utteranceId) {
+                Log.i(TAG, "TTS onDone");
+            }
+
+            @Override
+            public void onError(String utteranceId) {
+                Log.e(TAG, "TTS onError");
+            }
+        });
+    }
+
+    private void sendBrodecast(String text){
+        Intent intent = new Intent(MainActivity.BROADCAST_ACTION);
+        intent.putExtra(MainActivity.PARAM_STATUS,text);
+        sendBroadcast(intent);
+
+    }
 
 }

@@ -1,9 +1,10 @@
 package ru.codedevice.claw;
 
 import android.app.ActivityManager;
-import android.content.ComponentName;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -24,6 +25,11 @@ import android.widget.Toast;
 public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
     private String TAG = "MainActivity";
+    public final static String BROADCAST_ACTION = "ru.codedevice.claw";
+    public final static String PARAM_TASK = "task";
+    public final static String PARAM_STATUS = "status";
+
+    BroadcastReceiver br;
     Button mqttSend, mqttStart;
     EditText mqttTextTopic, mqttTextValue;
     Intent intent;
@@ -62,9 +68,16 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         View.OnClickListener mqttStartOnClick = new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                Log.d(TAG,  "Start");
-                startService(new Intent(MainActivity.this, MqttService.class));
-
+                Log.d(TAG,  "Click button Start");
+                if(isMyServiceRunning(MqttService.class)){
+                    stopService(new Intent(MainActivity.this, MqttService.class));
+                    mqttStart.setBackgroundColor(Color.GREEN);
+                    mqttStart.setText("Start");
+                }else{
+                    startService(new Intent(MainActivity.this, MqttService.class));
+                }
+                mqttStart.setEnabled(false);
+//                mqttStart.setClickable(false);
             }
         };
 
@@ -117,10 +130,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if(isMyServiceRunning(MqttService.class)){
             Log.d(TAG,  "MqttService is run");
             mqttStart.setBackgroundColor(Color.RED);
+            mqttStart.setText("Stop");
         }else{
             Log.d(TAG,  "MqttService is not run");
             mqttStart.setBackgroundColor(Color.GREEN);
+            mqttStart.setText("Start");
         }
+
+        initBrodecast();
     }
 
     @Override
@@ -162,11 +179,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             intent = new Intent(this, SettingsActivity.class);
             startActivity(intent);
         } else if (id == R.id.nav_iobroker) {
-            stopService(new Intent(this, MqttService.class));
             intent = new Intent(Intent.ACTION_VIEW, Uri.parse("http://iobroker.net/new-site/"));
             startActivity(intent);
         } else if (id == R.id.nav_smart_home) {
-            stopService(new Intent(this, MqttService.class));
             intent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://t.me/SmartsHome"));
             startActivity(intent);
         } else if (id == R.id.nav_about) {
@@ -197,6 +212,28 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 //        }
 //    }
 
+    private void initBrodecast(){
+        br = new BroadcastReceiver() {
+            public void onReceive(Context context, Intent intent) {
+                String status = intent.getStringExtra(PARAM_STATUS);
+                Log.i(TAG, "onReceive: status = " + status);
+                if(status.equals("Connection")){
+                    mqttStart.setBackgroundColor(Color.RED);
+                    mqttStart.setText("Stop");
+                    mqttStart.setEnabled(true);
+//                    mqttStart.setClickable(true);
+                }
+                if(status.equals("ConnectionFailure")){
+                    mqttStart.setEnabled(true);
+//                    mqttStart.setClickable(true);
+                }
+            }
+        };
+
+        IntentFilter intFilt = new IntentFilter(BROADCAST_ACTION);
+        registerReceiver(br, intFilt);
+    }
+
     protected void onResume() {
         super.onResume();
     }
@@ -208,6 +245,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     @Override
     public void onDestroy() {
         super.onDestroy();
+        unregisterReceiver(br);
     }
 }
 
