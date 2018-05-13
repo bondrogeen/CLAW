@@ -1,14 +1,18 @@
 package ru.codedevice.claw;
 
 import android.app.Service;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.preference.PreferenceManager;
+import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.util.Log;
@@ -36,18 +40,22 @@ public class MqttService extends Service implements MqttCallback {
     SharedPreferences settings;
     TextToSpeech tts;
     Toast toast;
+//    Context context;
+    BroadcastReceiver br;
+    PowerManager.WakeLock wl = null;
 
     String clientId;
-    String server;
-    String port;
+    String mqtt_server;
+    String mqtt_device;
+    String mqtt_port;
     String serverUri;
-    String username;
-    String password;
+    String mqtt_username;
+    String mqtt_password;
     Boolean run;
-    Boolean autoStart;
-    Boolean mqttRun;
+    Boolean mqtt_autoStart;
+//    Boolean mqttRun;
     Boolean tts_OK;
-    Boolean tts_TIME;
+//    Boolean tts_TIME;
     Boolean connectionLost;
 
     @Override
@@ -60,10 +68,15 @@ public class MqttService extends Service implements MqttCallback {
         initTTS();
         initMQTT();
         Log.d(TAG, "onCreate");
+        IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_ON);
+        filter.addAction(Intent.ACTION_SCREEN_OFF);
+        br = new AppReceiver();
+        registerReceiver(br, filter);
     }
 
     public boolean checkInternet() {
         ConnectivityManager cm = (ConnectivityManager)getSystemService(Context.CONNECTIVITY_SERVICE);
+        assert cm != null;
         NetworkInfo activeNetwork = cm.getActiveNetworkInfo();
         return activeNetwork != null && activeNetwork.isConnected();
     }
@@ -75,21 +88,25 @@ public class MqttService extends Service implements MqttCallback {
         if (intent != null && intent.getExtras() != null) {
             String status = intent.getStringExtra("status");
             Log.d(TAG, "status :" + status);
-            if(status.equals("autoStart")){
-                if (autoStart) {
-                    Log.d(TAG, "autoStart isConnected : " + MQTTclient.isConnected());
-                    Log.d(TAG, "autoStart net : " + net);
-                    if (!MQTTclient.isConnected() && net) {
-                        connect();
-                        Log.d(TAG, "autoStart");
+            switch (status) {
+                case "autoStart":
+                    if (mqtt_autoStart) {
+                        Log.d(TAG, "autoStart isConnected : " + MQTTclient.isConnected());
+                        Log.d(TAG, "autoStart net : " + net);
+                        if (!MQTTclient.isConnected() && net) {
+                            connect();
+                            Log.d(TAG, "autoStart");
+                        }
                     }
-                }
-            }else {
-                String topic = intent.getStringExtra("topic");
-                String value = intent.getStringExtra("value");
-                Log.d(TAG, "topic :" + topic);
-                Log.d(TAG, "value :" + value);
-                publish(topic, value);
+                    break;
+                case "screen":
+                    publish("info/display/status", getDisplay());
+                    break;
+                case "publish":
+                    String topic = intent.getStringExtra("topic");
+                    String value = intent.getStringExtra("value");
+                    publish(topic, value);
+                    break;
             }
         } else {
             if (!MQTTclient.isConnected() && net) {
@@ -117,6 +134,7 @@ public class MqttService extends Service implements MqttCallback {
             tts.shutdown();
             tts = null;
         }
+        unregisterReceiver(br);
         sendBrodecast("disconnect");
     }
 
@@ -130,18 +148,53 @@ public class MqttService extends Service implements MqttCallback {
     public void messageArrived(String topic, MqttMessage message) throws Exception {
         Log.d(TAG, "topic: "+topic + " value: "+message);
         Log.d(TAG, message.toString());
-        if (message.equals("")){return;}
-        if (topic.equals(clientId+"/tts/request")){
+        if (message.toString().equals("")){return;}
+        if (topic.equals(clientId+"/comm/tts/request")){
             speakOut(message.toString());
         }
-        if (topic.equals(clientId+"/tts/command")){
-            String mes = message.toString().toLowerCase();
-            if(mes.equals("stop")){
-
+        if (topic.equals(clientId+"/comm/tts/command")){
+//            String mes = message.toString().toLowerCase();
+//            if(mes.equals("stop")){//
+//            }
+        }
+        if (topic.equals(clientId+"/comm/display/level")){
+            if(isNumber(message.toString())){
+                int num = Integer.parseInt(message.toString());
+                setBrightness(num);
             }
-
+        }
+        if (topic.equals(clientId+"/comm/display/mode")){
+            int num = isTrue(message.toString());
+            if(num==1 || num==2){
+                setBrightnessMode(num);
+            }
+        }
+        if (topic.equals(clientId+"/comm/display/toWake")){
+            int num = isTrue(message.toString());
+            if(num==1 || num==2){
+                setDisplay(num);
+            }
         }
 
+    }
+
+    private int isTrue(String message){
+        String mes = message.toLowerCase();
+        int res = 0;
+        if(mes.equals("true")
+                ||mes.equals("1")
+                ||mes.equals("auto")
+                ||mes.equals("on")
+                ){
+            res = 1;
+        }else if (mes.equals("false")
+                ||mes.equals("0")
+                ||mes.equals("manual")
+                ||mes.equals("off")
+                ){
+            res = 2;
+        }
+        return res;
     }
 
     @Override
@@ -151,20 +204,22 @@ public class MqttService extends Service implements MqttCallback {
     public void initMQTT() {
         Log.i(TAG, "Start initMQTT");
         settings = PreferenceManager.getDefaultSharedPreferences(this);
-        server = settings.getString("mqtt_server", "");
-        port = settings.getString("mqtt_port", "");
-        serverUri = "tcp://" + server + ":" + port;
-        username = settings.getString("mqtt_login", "");
-        password = settings.getString("mqtt_pass", "");
+        mqtt_server = settings.getString("mqtt_server", "");
+        mqtt_port = settings.getString("mqtt_port", "");
+        serverUri = "tcp://" + mqtt_server + ":" + mqtt_port;
+        mqtt_username = settings.getString("mqtt_login", "");
+        mqtt_password = settings.getString("mqtt_pass", "");
+        mqtt_device = settings.getString("mqtt_device", Build.MODEL);
+
         run = settings.getBoolean("mqtt_run", false);
-        autoStart = settings.getBoolean("mqtt_switch", false);
+        mqtt_autoStart = settings.getBoolean("mqtt_switch", false);
         clientId = "CLAW";
 
         MQTTclient = new MqttAndroidClient(this.getApplicationContext(), serverUri, clientId);
         options = new MqttConnectOptions();
         options.setAutomaticReconnect(true);
-        options.setUserName(username);
-        options.setPassword(password.toCharArray());
+        options.setUserName(mqtt_username);
+        options.setPassword(mqtt_password.toCharArray());
         MQTTclient.setCallback(this);
     }
 
@@ -187,11 +242,11 @@ public class MqttService extends Service implements MqttCallback {
                 public void onSuccess(IMqttToken asyncActionToken) {
                     Log.d(TAG, "Connection");
                     pubOne();
-                    setSubscribe();
                     toast = Toast.makeText(getApplicationContext(),
                             "Connection", Toast.LENGTH_SHORT);
                     toast.show();
                     sendBrodecast("Connection");
+                    setSubscribe();
                 }
 
                 @Override
@@ -244,16 +299,23 @@ public class MqttService extends Service implements MqttCallback {
     }
 
     private void pubOne() {
-        publish("info/BRAND", Build.BRAND);
-        publish("info/MANUFACTURER", Build.MANUFACTURER);
-        publish("info/MODEL", Build.MODEL);
-        publish("info/PRODUCT", Build.PRODUCT);
-        publish("tts/request", "");
-        publish("tts/command", "");
+        publish("info/general/BRAND", Build.BRAND);
+        publish("info/general/MODEL", Build.MODEL);
+        publish("info/general/PRODUCT", Build.PRODUCT);
+        publish("info/display/level", String.valueOf(getBrightness()));
+        publish("info/display/mode", getBrightnessMode());
+        publish("info/display/status", getDisplay());
+        publish("info/display/sleep", "true");
+        publish("info/tts/talk", "false");
+        publish("comm/tts/request", "");
+        publish("comm/tts/command", "");
+        publish("comm/display/level", "");
+        publish("comm/display/mode", "");
+        publish("comm/display/toWake", "");
     }
 
     private void setSubscribe() {
-        String topic = "tts/*";
+        String topic = "comm/*";
         int qos = 1;
         try {
             IMqttToken subToken = MQTTclient.subscribe(clientId + "/" + topic, qos);
@@ -292,8 +354,6 @@ public class MqttService extends Service implements MqttCallback {
                 } else {
                     Log.e("TTS", "Initilization Failed!");
                 }
-
-
             }
         });
     }
@@ -311,11 +371,13 @@ public class MqttService extends Service implements MqttCallback {
         tts.setOnUtteranceProgressListener(new UtteranceProgressListener() {
             @Override
             public void onStart(String utteranceId) {
+                publish("info/tts/talk", "true");
                 Log.i(TAG, "TTS onStart");
             }
 
             @Override
             public void onDone(String utteranceId) {
+                publish("info/tts/talk", "false");
                 Log.i(TAG, "TTS onDone");
             }
 
@@ -333,4 +395,81 @@ public class MqttService extends Service implements MqttCallback {
 
     }
 
+    private static boolean isNumber(String str) {
+        return str.matches("[-+]?[\\d]+([.][\\d]+)?");
+    }
+
+    private int getBrightness(){
+        int brightness = 0;
+        try {
+            brightness = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS);
+        } catch (Exception ignored) {
+
+        }
+        return brightness;
+    }
+
+    private String getBrightnessMode(){
+        String mode = "";
+        try {
+            if (Settings.System.getInt(getContentResolver(),Settings.System.SCREEN_BRIGHTNESS_MODE) == 1){
+                mode="auto";
+            }else {
+                mode = "manual";
+            }
+        } catch (Settings.SettingNotFoundException e) {
+            e.printStackTrace();
+        }
+        return mode;
+    }
+
+    private void setBrightnessMode(int value){
+        if (value == 1){
+            Settings.System.putInt(getContentResolver(),Settings.System.SCREEN_BRIGHTNESS_MODE,Settings.System.SCREEN_BRIGHTNESS_MODE_AUTOMATIC);
+        }else if (value == 2){
+            Settings.System.putInt(getContentResolver(),Settings.System.SCREEN_BRIGHTNESS_MODE,Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL);
+        }
+        publish("info/display/mode", getBrightnessMode());
+    }
+
+    private void setBrightness(int value){
+        if(value<4){value=4;}
+        if(value>100){value=100;}
+        if (value <=100 && value >=4){
+            int num = (int) Math.round(value*2.55);
+            Log.i("Brightness", String.valueOf(num));
+            Settings.System.putInt(getContentResolver(),Settings.System.SCREEN_BRIGHTNESS_MODE,Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL);
+            Settings.System.putInt(getContentResolver(),Settings.System.SCREEN_BRIGHTNESS,num );
+            publish("info/display/level", String.valueOf(value));
+            publish("info/display/mode", "manual");
+        }
+    }
+
+    private String getDisplay(){
+        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+        String display;
+        assert pm != null;
+        if(pm.isScreenOn()){
+            display="true";
+        }else{
+            display="false";
+        }
+        return display;
+    }
+    private void setDisplay(int val){
+        Log.i("setDisplay : ", String.valueOf(val));
+        PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+        if (val == 1 && wl == null&& pm != null) {
+            wl = pm.newWakeLock(PowerManager.FULL_WAKE_LOCK
+                            | PowerManager.ACQUIRE_CAUSES_WAKEUP,
+                    TAG);
+            wl.acquire();
+            publish("info/display/sleep", "false");
+        }else if (val == 2 && wl != null){
+            wl.release();
+            wl=null;
+            publish("info/display/sleep", "true");
+        }
+
+    }
 }

@@ -91,6 +91,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     if(!topic.equals("") && !value.equals("")){
                         Intent service = new Intent(MainActivity.this, MqttService.class);
                         service.putExtra("topic", topic);
+                        service.putExtra("status", "publish");
                         service.putExtra("value", value);
                         startService(service);
                     }

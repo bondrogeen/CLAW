@@ -16,9 +16,8 @@ public class AppReceiver extends BroadcastReceiver {
     public void onReceive(Context context, Intent intent) {
         String action = intent.getAction();
         Log.i(TAG, "Action : " + action);
-
+        i = new Intent(context, MqttService.class);
         if (action.equals("android.net.conn.CONNECTIVITY_CHANGE")){
-            i = new Intent(context, MqttService.class);
             if (checkInternet(context)){
                 Log.i(TAG, "yes internet");
                 i.putExtra("status","autoStart");
@@ -29,18 +28,18 @@ public class AppReceiver extends BroadcastReceiver {
             }
         }
 
-//        try {
-//            Thread.sleep(10000L);
-//            } catch (InterruptedException var3) {
-//
-//            }
-//
-////            Intent i = new Intent(context, MainActivity.class);
-////            i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-////            context.startActivity(i);
-//            Log.i(TAG, "Autostart CLAW");
-////            context.startService(new Intent(context, MqttService.class));
+        if (action.equals("android.intent.action.BOOT_COMPLETED")
+                || action.equals("android.intent.action.QUICKBOOT_POWERON")
+                || action.equals("com.htc.intent.action.QUICKBOOT_POWERON") ){
+                context.startService(i);
         }
+
+        if (action.equals("android.intent.action.SCREEN_ON")
+                ||action.equals("android.intent.action.SCREEN_OFF")){
+            i.putExtra("status","screen");
+            context.startService(i);
+        }
+    }
 
     public  boolean checkInternet(Context context) {
         final ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);

@@ -4,7 +4,6 @@
 
     <header
         android:fragment="ru.codedevice.claw.SettingsActivity$GeneralPreferenceFragment"
-
         android:title="@string/pref_header_general" />
 
     <header
