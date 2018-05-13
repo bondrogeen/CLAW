@@ -12,7 +12,7 @@
     <!-- Example General settings -->
     <string name="pref_header_general">General</string>
 
-    <string name="mqtt_title">Enable</string>
+    <string name="mqtt_title">Autostart</string>
     <string name="mqtt_summary_switch">MQTT</string>
     <string name="mqtt_server">Server</string>
     <string name="mqtt_port">Port</string>
@@ -80,7 +80,7 @@
     <string name="mqtt_text_topic">topic</string>
     <string name="mqtt_text_value">value</string>
     <string name="textButtonStart_start">Start</string>
-    <string name="R.string.textButtonStart_stop">Stop</string>
+    <string name="textButtonStart_stop">Stop</string>
     <string name="adout">This application allows you to manage the android device using MQTT</string>
     <string name="LinkGit"><a href="https://github.com/bondrogeen/CLAW">GitHub</a></string>
     <string name="LinkDonations"><a href="https://www.paypal.com/uk/cgi-bin/webscr?cmd=_flow&amp;SESSION=a6fdUwoxwFwhl3G7-xMpphJFpU1MdR5j7e6aXceAexkVXvx1kO5UPgVoeUm&amp;dispatch=5885d80a13c0db1f8e263663d3faee8db8175432b4df92754f4b4adb5a123d61&amp;rapidsState=Donation__DonationFlow___StateDonationLogin&amp;rapidsStateSignature=1560267b9cd1d2b8f4086d57be0ea95ce65d51c1">Donations</a></string>

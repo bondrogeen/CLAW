@@ -44,9 +44,11 @@ public class MqttService extends Service implements MqttCallback {
     String username;
     String password;
     Boolean run;
-    Boolean start;
+    Boolean autoStart;
+    Boolean mqttRun;
     Boolean tts_OK;
     Boolean tts_TIME;
+    Boolean connectionLost;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -68,25 +70,32 @@ public class MqttService extends Service implements MqttCallback {
 
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "startId :" + startId);
+        Log.d(TAG, "flags :" + flags);
+        Boolean net = checkInternet();
         if (intent != null && intent.getExtras() != null) {
-            String topic = intent.getStringExtra("topic");
-            String value = intent.getStringExtra("value");
-            Log.d(TAG, "topic :" + topic);
-            Log.d(TAG, "value :" + value);
-            publish(topic, value);
+            String status = intent.getStringExtra("status");
+            Log.d(TAG, "status :" + status);
+            if(status.equals("autoStart")){
+                if (autoStart) {
+                    Log.d(TAG, "autoStart isConnected : " + MQTTclient.isConnected());
+                    Log.d(TAG, "autoStart net : " + net);
+                    if (!MQTTclient.isConnected() && net) {
+                        connect();
+                        Log.d(TAG, "autoStart");
+                    }
+                }
+            }else {
+                String topic = intent.getStringExtra("topic");
+                String value = intent.getStringExtra("value");
+                Log.d(TAG, "topic :" + topic);
+                Log.d(TAG, "value :" + value);
+                publish(topic, value);
+            }
         } else {
-            Boolean net = checkInternet();
-            if (start && !MQTTclient.isConnected() && net) {
+            if (!MQTTclient.isConnected() && net) {
                 connect();
                 Log.d(TAG, "Connect MQTT");
             }else{
-                if (!start) {
-                    toast = Toast.makeText(getApplicationContext(),
-                            "Enable MQTT settings", Toast.LENGTH_SHORT);
-                    toast.show();
-                    sendBrodecast("noEnable");
-                    stopSelf();
-                }
                 if(!net){
                     toast = Toast.makeText(getApplicationContext(),
                             "No network connection", Toast.LENGTH_SHORT);
@@ -108,10 +117,12 @@ public class MqttService extends Service implements MqttCallback {
             tts.shutdown();
             tts = null;
         }
+        sendBrodecast("disconnect");
     }
 
     @Override
     public void connectionLost(Throwable throwable) {
+        connectionLost=true;
         Log.d(TAG, "connectionLost");
     }
 
@@ -146,7 +157,7 @@ public class MqttService extends Service implements MqttCallback {
         username = settings.getString("mqtt_login", "");
         password = settings.getString("mqtt_pass", "");
         run = settings.getBoolean("mqtt_run", false);
-        start = settings.getBoolean("mqtt_switch", false);
+        autoStart = settings.getBoolean("mqtt_switch", false);
         clientId = "CLAW";
 
         MQTTclient = new MqttAndroidClient(this.getApplicationContext(), serverUri, clientId);
@@ -199,12 +210,16 @@ public class MqttService extends Service implements MqttCallback {
     }
 
     public void disconnect() {
-        if (MQTTclient.isConnected()) {
+        Log.d(TAG, "Disconnect start");
+        Log.d(TAG, "Disconnect isConnected "+MQTTclient.isConnected());
+        if (MQTTclient.isConnected()||connectionLost) {
+            Log.d(TAG, "Disconnect START ");
             try {
                 IMqttToken token = MQTTclient.disconnect();
                 token.setActionCallback(new IMqttActionListener() {
                     @Override
                     public void onSuccess(IMqttToken asyncActionToken) {
+                        options.setAutomaticReconnect(false);
                         toast = Toast.makeText(getApplicationContext(),
                                 "Disconnect", Toast.LENGTH_SHORT);
                         toast.show();
@@ -224,6 +239,7 @@ public class MqttService extends Service implements MqttCallback {
             } catch (MqttException e) {
                 e.printStackTrace();
             }
+
         }
     }
 

@@ -94,12 +94,13 @@
             android:exported="true" />
 
         <receiver
-            android:name=".ServiceBoot"
+            android:name=".AppReceiver"
             android:enabled="true"
             android:exported="false">
             <intent-filter>
                 <category android:name="android.intent.category.LAUNCHER" />
-
+                <action android:name="android.net.conn.CONNECTIVITY_CHANGE" />
+                <action android:name="android.net.wifi.WIFI_STATE_CHANGED" />
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />

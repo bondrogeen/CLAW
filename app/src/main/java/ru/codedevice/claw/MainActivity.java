@@ -117,7 +117,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if(isMyServiceRunning(MqttService.class)){
             Log.d(TAG,  "MqttService is run");
             mqttStart.setBackgroundColor(Color.RED);
-            mqttStart.setText(R.string.R_string_textButtonStart_stop);
+            mqttStart.setText(R.string.textButtonStart_stop);
             mqttSend.setEnabled(true);
         }else{
             Log.d(TAG,  "MqttService is not run");
@@ -194,7 +194,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                 Log.i(TAG, "onReceive: status = " + status);
                 if(status.equals("Connection")){
                     mqttStart.setBackgroundColor(Color.RED);
-                    mqttStart.setText(R.string.R_string_textButtonStart_stop);
+                    mqttStart.setText(R.string.textButtonStart_stop);
                     mqttStart.setEnabled(true);
                     mqttSend.setEnabled(true);
                 }
@@ -203,6 +203,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                         || status.equals("disconnectFailure")
                         || status.equals("disconnect")
                         || status.equals("noNetwork")){
+                    mqttStart.setBackgroundColor(Color.GREEN);
+                    mqttStart.setText(R.string.textButtonStart_start);
                     mqttStart.setEnabled(true);
                     mqttSend.setEnabled(false);
                     if (status.equals("noEnable")){
