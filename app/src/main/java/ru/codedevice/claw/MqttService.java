@@ -1,8 +1,13 @@
 package ru.codedevice.claw;
 
+import android.app.AlertDialog;
+import android.app.Notification;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
@@ -15,7 +20,9 @@ import android.preference.PreferenceManager;
 import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
+import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+import android.view.WindowManager;
 import android.widget.Toast;
 
 import org.eclipse.paho.android.service.MqttAndroidClient;
@@ -28,8 +35,11 @@ import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
 import java.io.UnsupportedEncodingException;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
+
+import static android.support.v4.app.NotificationCompat.*;
 
 public class MqttService extends Service implements MqttCallback {
 
@@ -40,9 +50,9 @@ public class MqttService extends Service implements MqttCallback {
     SharedPreferences settings;
     TextToSpeech tts;
     Toast toast;
-//    Context context;
     BroadcastReceiver br;
     PowerManager.WakeLock wl = null;
+    Context context;
 
     String clientId;
     String mqtt_server;
@@ -56,7 +66,7 @@ public class MqttService extends Service implements MqttCallback {
 //    Boolean mqttRun;
     Boolean tts_OK;
 //    Boolean tts_TIME;
-    Boolean connectionLost;
+    Boolean connectionLost = false;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -149,31 +159,44 @@ public class MqttService extends Service implements MqttCallback {
         Log.d(TAG, "topic: "+topic + " value: "+message);
         Log.d(TAG, message.toString());
         if (message.toString().equals("")){return;}
-        if (topic.equals(clientId+"/comm/tts/request")){
+
+        if (topic.equals(clientId + "/" + mqtt_device +"/comm/tts/request")){
             speakOut(message.toString());
         }
-        if (topic.equals(clientId+"/comm/tts/command")){
+        if (topic.equals(clientId + "/" + mqtt_device +"/comm/tts/command")){
 //            String mes = message.toString().toLowerCase();
 //            if(mes.equals("stop")){//
 //            }
         }
-        if (topic.equals(clientId+"/comm/display/level")){
+        if (topic.equals(clientId + "/" + mqtt_device +"/comm/display/level")){
             if(isNumber(message.toString())){
                 int num = Integer.parseInt(message.toString());
                 setBrightness(num);
             }
         }
-        if (topic.equals(clientId+"/comm/display/mode")){
+        if (topic.equals(clientId + "/" + mqtt_device +"/comm/display/mode")){
             int num = isTrue(message.toString());
             if(num==1 || num==2){
                 setBrightnessMode(num);
             }
         }
-        if (topic.equals(clientId+"/comm/display/toWake")){
+        if (topic.equals(clientId + "/" + mqtt_device +"/comm/display/timeOff")){
+            if(isNumber(message.toString())){
+                int num = Integer.parseInt(message.toString());
+                setTimeOff(num);
+            }
+        }
+        if (topic.equals(clientId + "/" + mqtt_device +"/comm/display/toWake")){
             int num = isTrue(message.toString());
             if(num==1 || num==2){
                 setDisplay(num);
             }
+        }
+        if (topic.equals(clientId + "/" + mqtt_device +"/comm/notification/simple")){
+            notification(message.toString());
+        }
+        if (topic.equals(clientId + "/" + mqtt_device +"/comm/notification/alert")){
+            alert(message.toString());
         }
 
     }
@@ -203,23 +226,34 @@ public class MqttService extends Service implements MqttCallback {
 
     public void initMQTT() {
         Log.i(TAG, "Start initMQTT");
+
         settings = PreferenceManager.getDefaultSharedPreferences(this);
         mqtt_server = settings.getString("mqtt_server", "");
         mqtt_port = settings.getString("mqtt_port", "");
         serverUri = "tcp://" + mqtt_server + ":" + mqtt_port;
         mqtt_username = settings.getString("mqtt_login", "");
         mqtt_password = settings.getString("mqtt_pass", "");
-        mqtt_device = settings.getString("mqtt_device", Build.MODEL);
-
+        mqtt_device = settings.getString("mqtt_device", Build.MODEL.replaceAll("\\s+",""));
         run = settings.getBoolean("mqtt_run", false);
         mqtt_autoStart = settings.getBoolean("mqtt_switch", false);
         clientId = "CLAW";
 
+        if (mqtt_device==null || mqtt_device.equals("")) {
+            mqtt_device = Build.MODEL.replaceAll("\\s+","");
+        }
+
+        Log.i(TAG, "mqtt_username"+mqtt_username);
         MQTTclient = new MqttAndroidClient(this.getApplicationContext(), serverUri, clientId);
         options = new MqttConnectOptions();
         options.setAutomaticReconnect(true);
-        options.setUserName(mqtt_username);
-        options.setPassword(mqtt_password.toCharArray());
+
+        if (mqtt_username!=null || !mqtt_username.equals("")){
+            options.setUserName(mqtt_username);
+        }
+        if (mqtt_password!=null || !mqtt_password.equals("")){
+            options.setPassword(mqtt_password.toCharArray());
+        }
+
         MQTTclient.setCallback(this);
     }
 
@@ -228,7 +262,7 @@ public class MqttService extends Service implements MqttCallback {
         try {
             encodedPayload = payload.getBytes("UTF-8");
             MqttMessage message = new MqttMessage(encodedPayload);
-            MQTTclient.publish(clientId + "/" + topic, message);
+            MQTTclient.publish(clientId + "/" + mqtt_device + "/" + topic, message);
         } catch (UnsupportedEncodingException | MqttException e) {
             e.printStackTrace();
         }
@@ -241,6 +275,7 @@ public class MqttService extends Service implements MqttCallback {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
                     Log.d(TAG, "Connection");
+                    notification( "Title ; Text");
                     pubOne();
                     toast = Toast.makeText(getApplicationContext(),
                             "Connection", Toast.LENGTH_SHORT);
@@ -305,6 +340,7 @@ public class MqttService extends Service implements MqttCallback {
         publish("info/display/level", String.valueOf(getBrightness()));
         publish("info/display/mode", getBrightnessMode());
         publish("info/display/status", getDisplay());
+        publish("info/display/timeOff", String.valueOf(getTimeOff()));
         publish("info/display/sleep", "true");
         publish("info/tts/talk", "false");
         publish("comm/tts/request", "");
@@ -312,13 +348,16 @@ public class MqttService extends Service implements MqttCallback {
         publish("comm/display/level", "");
         publish("comm/display/mode", "");
         publish("comm/display/toWake", "");
+        publish("comm/display/timeOff", "");
+        publish("comm/notification/simple", "");
+        publish("comm/notification/alert", "");
     }
 
     private void setSubscribe() {
         String topic = "comm/*";
         int qos = 1;
         try {
-            IMqttToken subToken = MQTTclient.subscribe(clientId + "/" + topic, qos);
+            IMqttToken subToken = MQTTclient.subscribe(clientId + "/" + mqtt_device +"/"+topic, qos);
             subToken.setActionCallback(new IMqttActionListener() {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
@@ -408,6 +447,27 @@ public class MqttService extends Service implements MqttCallback {
         }
         return brightness;
     }
+    private int getTimeOff(){
+        int timeOff = 0;
+        try {
+            timeOff = Settings.System.getInt(getContentResolver(),Settings.System.SCREEN_OFF_TIMEOUT);
+            timeOff = timeOff/1000;
+        } catch (Exception ignored) {
+
+        }
+        return timeOff;
+    }
+    private void setTimeOff(int time){
+        publish("info/display/timeOff", String.valueOf(time));
+        if(time!=-1){
+            time = time*1000;
+        }
+        try {
+            Settings.System.putInt(getContentResolver(),Settings.System.SCREEN_OFF_TIMEOUT,time);
+        } catch (Exception ignored) {
+
+        }
+    }
 
     private String getBrightnessMode(){
         String mode = "";
@@ -471,5 +531,59 @@ public class MqttService extends Service implements MqttCallback {
             publish("info/display/sleep", "true");
         }
 
+    }
+
+    private void notification(String str){
+        Log.i("notification : ", "String  : "+str);
+        String[] subStr;
+        subStr = str.split(";");
+        String text = "";
+        String title = "";
+        if (subStr.length >= 2){
+            text = subStr[1];
+            title = subStr[0];
+        }else{
+            text = str;
+        }
+        Log.i("notification : ", "String  : "+ Arrays.toString(subStr));
+        Intent resultIntent = new Intent(this, MainActivity.class);
+        PendingIntent resultPendingIntent = PendingIntent.getActivity(this, 0, resultIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT);
+
+        NotificationCompat.Builder builder =
+                new NotificationCompat.Builder(this)
+                        .setSmallIcon(R.mipmap.ic_launcher)
+                        .setContentTitle(title)
+                        .setContentText(text)
+                        .setAutoCancel(true)
+                        .setTicker(title)
+                        .setWhen(System.currentTimeMillis())
+                        .setDefaults(Notification.DEFAULT_ALL)
+                        .setContentIntent(resultPendingIntent);
+
+        Notification notification = builder.build();
+
+        // Show Notification
+        NotificationManager notificationManager =
+                (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        notificationManager.notify(1, notification);
+
+    }
+
+    private void alert(String str){
+        Log.i("alert : ", "String  : "+str);
+        String[] subStr;
+        subStr = str.split(";");
+        String text = "";
+        String title = "";
+        if (subStr.length >= 2){
+            text = subStr[1];
+            title = subStr[0];
+        }else{
+            text = str;
+        }
+        Log.i("alert : ", "String  : " + Arrays.toString(subStr));
+
+        sendBrodecast("Alert");
     }
 }

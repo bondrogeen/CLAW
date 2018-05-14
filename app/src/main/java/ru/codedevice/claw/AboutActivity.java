@@ -19,8 +19,8 @@ public class AboutActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_about);
         setupActionBar();
-        TextView GitHub = findViewById(R.id.text_view_LinkGitHub);
-        GitHub.setMovementMethod(LinkMovementMethod.getInstance());
+//        TextView GitHub = findViewById(R.id.text_view_LinkGitHub);
+//        GitHub.setMovementMethod(LinkMovementMethod.getInstance());
         TextView LinkDonations = findViewById(R.id.text_view_LinkDonations);
         LinkDonations.setMovementMethod(LinkMovementMethod.getInstance());
     }

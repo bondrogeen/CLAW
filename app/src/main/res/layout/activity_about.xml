@@ -19,17 +19,6 @@
 
     <TextView
         android:padding="5dp"
-        android:id="@+id/text_view_LinkGitHub"
-        android:layout_height="wrap_content"
-        android:layout_width="wrap_content"
-        android:gravity="center"
-        android:text="@string/LinkGit"
-        app:layout_constraintBottom_toTopOf="@id/text_view_LinkDonations"
-        android:textSize="20sp"
-        />
-
-    <TextView
-        android:padding="5dp"
         android:id="@+id/text_view_LinkDonations"
         android:layout_height="wrap_content"
         android:layout_width="wrap_content"

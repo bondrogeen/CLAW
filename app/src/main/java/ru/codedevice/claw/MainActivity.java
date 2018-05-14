@@ -1,13 +1,18 @@
 package ru.codedevice.claw;
 
 import android.app.ActivityManager;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.preference.PreferenceManager;
 import android.view.View;
 import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
@@ -33,6 +38,10 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     EditText mqttTextTopic, mqttTextValue;
     Intent intent;
     Toast toast;
+    SharedPreferences settings;
+    Context context;
+
+    String mqtt_device;
 
     private boolean isMyServiceRunning(Class<?> serviceClass) {
         ActivityManager manager = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
@@ -50,6 +59,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         setContentView(R.layout.activity_main);
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
+
+        settings = PreferenceManager.getDefaultSharedPreferences(this);
+
+        if (mqtt_device==null || mqtt_device.equals("")) {
+            SharedPreferences.Editor editor = settings.edit();
+            editor.putString("mqtt_device", Build.MODEL.replaceAll("\\s+",""));
+            editor.commit();
+        }
 
         mqttStart = findViewById(R.id.mqtt_start);
         mqttSend =  findViewById(R.id.mqtt_send);
@@ -199,6 +216,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     mqttStart.setEnabled(true);
                     mqttSend.setEnabled(true);
                 }
+                if(status.equals("Alert")){
+                    alert();
+                }
                 if(status.equals("ConnectionFailure")
                         || status.equals("noEnable")
                         || status.equals("disconnectFailure")
@@ -233,6 +253,28 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     public void onDestroy() {
         super.onDestroy();
         unregisterReceiver(br);
+    }
+    public void alert() {
+        AlertDialog.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            builder = new AlertDialog.Builder(this, android.R.style.Theme_Material_Dialog_Alert);
+        } else {
+            builder = new AlertDialog.Builder(this);
+        }
+        builder.setTitle("Delete entry")
+                .setMessage("Are you sure you want to delete this entry?")
+                .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        // continue with delete
+                    }
+                })
+                .setNegativeButton(android.R.string.no, new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        // do nothing
+                    }
+                })
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .show();
     }
 }
 

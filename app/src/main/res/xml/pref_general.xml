@@ -52,5 +52,13 @@
         android:singleLine="true"
         android:title="@string/mqtt_pass" />
 
+    <EditTextPreference
+        android:capitalize="words"
+        android:inputType="textCapWords"
+        android:key="mqtt_device"
+        android:maxLines="1"
+        android:selectAllOnFocus="true"
+        android:singleLine="true"
+        android:title="@string/mqtt_device" />
 
 </PreferenceScreen>

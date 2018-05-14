@@ -3,6 +3,7 @@ package ru.codedevice.claw;
 import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.res.Configuration;
 import android.media.Ringtone;
 import android.media.RingtoneManager;
@@ -40,6 +41,7 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
      * to reflect its new value.
      */
     String TAG = "SettingsActivity";
+
     private static Preference.OnPreferenceChangeListener sBindPreferenceSummaryToValueListener = new Preference.OnPreferenceChangeListener() {
         @Override
         public boolean onPreferenceChange(Preference preference, Object value) {
@@ -181,6 +183,7 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
      */
     @TargetApi(Build.VERSION_CODES.HONEYCOMB)
     public static class GeneralPreferenceFragment extends PreferenceFragment {
+        String TAG = "SettingsActivityGeneral";
         @Override
         public void onCreate(Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
@@ -192,6 +195,8 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             bindPreferenceSummaryToValue(findPreference("mqtt_port"));
             bindPreferenceSummaryToValue(findPreference("mqtt_login"));
             bindPreferenceSummaryToValue(findPreference("mqtt_pass"));
+            Log.d(TAG, String.valueOf(findPreference("mqtt_device")));
+            bindPreferenceSummaryToValue(findPreference("mqtt_device"));
         }
 
         @Override

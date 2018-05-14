@@ -85,6 +85,7 @@
     <string name="LinkGit"><a href="https://github.com/bondrogeen/CLAW">GitHub</a></string>
     <string name="LinkDonations"><a href="https://www.paypal.com/uk/cgi-bin/webscr?cmd=_flow&amp;SESSION=a6fdUwoxwFwhl3G7-xMpphJFpU1MdR5j7e6aXceAexkVXvx1kO5UPgVoeUm&amp;dispatch=5885d80a13c0db1f8e263663d3faee8db8175432b4df92754f4b4adb5a123d61&amp;rapidsState=Donation__DonationFlow___StateDonationLogin&amp;rapidsStateSignature=1560267b9cd1d2b8f4086d57be0ea95ce65d51c1">Donations</a></string>
     <string name="action_about">About</string>
+    <string name="mqtt_device">Name device</string>
 
 
 </resources>
