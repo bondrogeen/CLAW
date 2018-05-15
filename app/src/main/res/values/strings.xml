@@ -9,17 +9,15 @@
 
     <!-- Strings related to Settings -->
 
-    <!-- Example General settings -->
-    <string name="pref_header_general">General</string>
+    <!-- Example Mqtt settings -->
+    <string name="pref_header_mqtt">MQTT</string>
 
-    <string name="mqtt_title">Autostart</string>
-    <string name="mqtt_summary_switch">MQTT</string>
     <string name="mqtt_server">Server</string>
     <string name="mqtt_port">Port</string>
     <string name="mqtt_login">Login</string>
     <string name="mqtt_pass">Password</string>
-
     <string name="mqtt_sec">SSL / TLS</string>
+
     <string-array name="mqtt_sec_list_titles">
         <item>SSL</item>
         <item>TLS</item>
@@ -28,6 +26,35 @@
         <item>SSL</item>
         <item>TLS</item>
     </string-array>
+
+
+    <!-- Example Mqtt settings -->
+    <string name="pref_header_general">General</string>
+
+    <string name="general_summary_start_on">Run applications when you turn on</string>
+    <string name="general_title_start_on">Auto start</string>
+
+    <string-array name="general_list_titles">
+        <item>No</item>
+        <item>1min</item>
+        <item>5min</item>
+        <item>10min</item>
+        <item>30min</item>
+        <item>60min</item>
+    </string-array>
+    <string-array name="general_list_values">
+        <item>0</item>
+        <item>60</item>
+        <item>300</item>
+        <item>600</item>
+        <item>1800</item>
+        <item>3600</item>
+    </string-array>
+
+    <!--<string name="general_start_net">Port</string>-->
+    <!--<string name="general">Login</string>-->
+    <!--<string name="general">Password</string>-->
+    <!--<string name="general">SSL / TLS</string>-->
 
     <!-- Example settings for Data & Sync -->
     <string name="pref_header_data_sync">Data &amp; sync</string>
@@ -86,6 +113,9 @@
     <string name="LinkDonations"><a href="https://www.paypal.com/uk/cgi-bin/webscr?cmd=_flow&amp;SESSION=a6fdUwoxwFwhl3G7-xMpphJFpU1MdR5j7e6aXceAexkVXvx1kO5UPgVoeUm&amp;dispatch=5885d80a13c0db1f8e263663d3faee8db8175432b4df92754f4b4adb5a123d61&amp;rapidsState=Donation__DonationFlow___StateDonationLogin&amp;rapidsStateSignature=1560267b9cd1d2b8f4086d57be0ea95ce65d51c1">Donations</a></string>
     <string name="action_about">About</string>
     <string name="mqtt_device">Name device</string>
+    <string name="general_title_timer">Data sending period</string>
+    <string name="appwidget_text">Claw</string>
+    <string name="add_widget">Add widget</string>
 
 
 </resources>

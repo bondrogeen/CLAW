@@ -173,6 +173,7 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
     protected boolean isValidFragment(String fragmentName) {
         return PreferenceFragment.class.getName().equals(fragmentName)
                 || GeneralPreferenceFragment.class.getName().equals(fragmentName)
+                || MqttPreferenceFragment.class.getName().equals(fragmentName)
                 || DataSyncPreferenceFragment.class.getName().equals(fragmentName)
                 || NotificationPreferenceFragment.class.getName().equals(fragmentName);
     }
@@ -190,12 +191,39 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             addPreferencesFromResource(R.xml.pref_general);
             setHasOptionsMenu(true);
 
+            bindPreferenceSummaryToValue(findPreference("general_list_timer"));
+//            bindPreferenceSummaryToValue(findPreference("mqtt_port"));
+//            bindPreferenceSummaryToValue(findPreference("mqtt_login"));
+//            bindPreferenceSummaryToValue(findPreference("mqtt_pass"));
+//            Log.d(TAG, String.valueOf(findPreference("mqtt_device")));
+//            bindPreferenceSummaryToValue(findPreference("mqtt_device"));
+        }
+
+        @Override
+        public boolean onOptionsItemSelected(MenuItem item) {
+            int id = item.getItemId();
+            if (id == android.R.id.home) {
+                startActivity(new Intent(getActivity(), SettingsActivity.class));
+                return true;
+            }
+            return super.onOptionsItemSelected(item);
+        }
+    }
+
+    @TargetApi(Build.VERSION_CODES.HONEYCOMB)
+    public static class MqttPreferenceFragment extends PreferenceFragment {
+        String TAG = "SettingsActivityMqtt";
+        @Override
+        public void onCreate(Bundle savedInstanceState) {
+            super.onCreate(savedInstanceState);
+            addPreferencesFromResource(R.xml.pref_mqtt);
+            setHasOptionsMenu(true);
+
             bindPreferenceSummaryToValue(findPreference("mqtt_list_sec"));
             bindPreferenceSummaryToValue(findPreference("mqtt_server"));
             bindPreferenceSummaryToValue(findPreference("mqtt_port"));
             bindPreferenceSummaryToValue(findPreference("mqtt_login"));
             bindPreferenceSummaryToValue(findPreference("mqtt_pass"));
-            Log.d(TAG, String.valueOf(findPreference("mqtt_device")));
             bindPreferenceSummaryToValue(findPreference("mqtt_device"));
         }
 

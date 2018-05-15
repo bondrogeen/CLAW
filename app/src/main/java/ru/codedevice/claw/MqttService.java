@@ -1,13 +1,11 @@
 package ru.codedevice.claw;
 
-import android.app.AlertDialog;
 import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
@@ -22,9 +20,7 @@ import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
-import android.view.WindowManager;
 import android.widget.Toast;
-
 import org.eclipse.paho.android.service.MqttAndroidClient;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -33,13 +29,10 @@ import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
-
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
-
-import static android.support.v4.app.NotificationCompat.*;
 
 public class MqttService extends Service implements MqttCallback {
 
@@ -62,7 +55,7 @@ public class MqttService extends Service implements MqttCallback {
     String mqtt_username;
     String mqtt_password;
     Boolean run;
-    Boolean mqtt_autoStart;
+    Boolean general_startBoot;
 //    Boolean mqttRun;
     Boolean tts_OK;
 //    Boolean tts_TIME;
@@ -75,13 +68,75 @@ public class MqttService extends Service implements MqttCallback {
 
     public void onCreate() {
         super.onCreate();
+        initSettings();
         initTTS();
         initMQTT();
+        initBroadReceiver();
         Log.d(TAG, "onCreate");
+    }
+
+
+    public void initBroadReceiver() {
         IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_ON);
         filter.addAction(Intent.ACTION_SCREEN_OFF);
         br = new AppReceiver();
         registerReceiver(br, filter);
+    }
+    public void initSettings() {
+
+        settings = PreferenceManager.getDefaultSharedPreferences(this);
+        clientId = "CLAW";
+        mqtt_server = settings.getString("mqtt_server", "");
+        mqtt_port = settings.getString("mqtt_port", "");
+        serverUri = "tcp://" + mqtt_server + ":" + mqtt_port;
+        mqtt_username = settings.getString("mqtt_login", "");
+        mqtt_password = settings.getString("mqtt_pass", "");
+        mqtt_device = settings.getString("mqtt_device", Build.MODEL.replaceAll("\\s+",""));
+        run = settings.getBoolean("mqtt_run", false);
+        general_startBoot = settings.getBoolean("general_startBoot", false);
+        if (mqtt_device==null || mqtt_device.equals("")) {
+            mqtt_device = Build.MODEL.replaceAll("\\s+","");
+        }
+    }
+    public void initMQTT() {
+        Log.i(TAG, "Start initMQTT");
+
+        MQTTclient = new MqttAndroidClient(this.getApplicationContext(), serverUri, clientId);
+        options = new MqttConnectOptions();
+        options.setAutomaticReconnect(true);
+
+        Log.e(TAG, "mqtt_username!=null " + String.valueOf(mqtt_username!=null));
+        Log.e(TAG, "!mqtt_username.equals('') " +String.valueOf( !mqtt_username.equals("")));
+        if (mqtt_username!=null && !mqtt_username.equals("")){
+            Log.e(TAG, String.valueOf("mqtt_username" + mqtt_username!=null));
+            options.setUserName(mqtt_username);
+        }
+        if (mqtt_password!=null && !mqtt_password.equals("")){
+            options.setPassword(mqtt_password.toCharArray());
+        }
+
+        MQTTclient.setCallback(this);
+    }
+
+    private void initTTS() {
+        tts_OK = false;
+        tts = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if (status == TextToSpeech.SUCCESS) {
+                    int result = tts.setLanguage(Locale.getDefault());
+                    if (result == TextToSpeech.LANG_MISSING_DATA
+                            || result == TextToSpeech.LANG_NOT_SUPPORTED) {
+                        Log.e("TTS", "This Language is not supported");
+                    } else {
+                        tts_OK = true;
+                        Log.i("TTS", "This Language is supported");
+                    }
+                } else {
+                    Log.e("TTS", "Initilization Failed!");
+                }
+            }
+        });
     }
 
     public boolean checkInternet() {
@@ -100,7 +155,7 @@ public class MqttService extends Service implements MqttCallback {
             Log.d(TAG, "status :" + status);
             switch (status) {
                 case "autoStart":
-                    if (mqtt_autoStart) {
+                    if (general_startBoot) {
                         Log.d(TAG, "autoStart isConnected : " + MQTTclient.isConnected());
                         Log.d(TAG, "autoStart net : " + net);
                         if (!MQTTclient.isConnected() && net) {
@@ -224,39 +279,6 @@ public class MqttService extends Service implements MqttCallback {
     public void deliveryComplete(IMqttDeliveryToken iMqttDeliveryToken) {
     }
 
-    public void initMQTT() {
-        Log.i(TAG, "Start initMQTT");
-
-        settings = PreferenceManager.getDefaultSharedPreferences(this);
-        mqtt_server = settings.getString("mqtt_server", "");
-        mqtt_port = settings.getString("mqtt_port", "");
-        serverUri = "tcp://" + mqtt_server + ":" + mqtt_port;
-        mqtt_username = settings.getString("mqtt_login", "");
-        mqtt_password = settings.getString("mqtt_pass", "");
-        mqtt_device = settings.getString("mqtt_device", Build.MODEL.replaceAll("\\s+",""));
-        run = settings.getBoolean("mqtt_run", false);
-        mqtt_autoStart = settings.getBoolean("mqtt_switch", false);
-        clientId = "CLAW";
-
-        if (mqtt_device==null || mqtt_device.equals("")) {
-            mqtt_device = Build.MODEL.replaceAll("\\s+","");
-        }
-
-        Log.i(TAG, "mqtt_username"+mqtt_username);
-        MQTTclient = new MqttAndroidClient(this.getApplicationContext(), serverUri, clientId);
-        options = new MqttConnectOptions();
-        options.setAutomaticReconnect(true);
-
-        if (mqtt_username!=null || !mqtt_username.equals("")){
-            options.setUserName(mqtt_username);
-        }
-        if (mqtt_password!=null || !mqtt_password.equals("")){
-            options.setPassword(mqtt_password.toCharArray());
-        }
-
-        MQTTclient.setCallback(this);
-    }
-
     public void publish(String topic, String payload) {
         byte[] encodedPayload = new byte[0];
         try {
@@ -275,7 +297,7 @@ public class MqttService extends Service implements MqttCallback {
                 @Override
                 public void onSuccess(IMqttToken asyncActionToken) {
                     Log.d(TAG, "Connection");
-                    notification( "Title ; Text");
+//                    notification( "Title ; Text");
                     pubOne();
                     toast = Toast.makeText(getApplicationContext(),
                             "Connection", Toast.LENGTH_SHORT);
@@ -372,29 +394,6 @@ public class MqttService extends Service implements MqttCallback {
         } catch (MqttException e) {
             e.printStackTrace();
         }
-    }
-
-
-
-    private void initTTS() {
-        tts_OK = false;
-        tts = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
-            @Override
-            public void onInit(int status) {
-                if (status == TextToSpeech.SUCCESS) {
-                    int result = tts.setLanguage(Locale.getDefault());
-                    if (result == TextToSpeech.LANG_MISSING_DATA
-                            || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                        Log.e("TTS", "This Language is not supported");
-                    } else {
-                        tts_OK = true;
-                        Log.i("TTS", "This Language is supported");
-                    }
-                } else {
-                    Log.e("TTS", "Initilization Failed!");
-                }
-            }
-        });
     }
 
     private void speakOut(String text) {
