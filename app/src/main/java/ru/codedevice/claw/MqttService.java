@@ -4,7 +4,9 @@ import android.app.Notification;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.appwidget.AppWidgetManager;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -33,6 +35,8 @@ import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Locale;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class MqttService extends Service implements MqttCallback {
 
@@ -46,6 +50,8 @@ public class MqttService extends Service implements MqttCallback {
     BroadcastReceiver br;
     PowerManager.WakeLock wl = null;
     Context context;
+    Timer myTimer;
+    ReTimerTask myReTimerTask;
 
     String clientId;
     String mqtt_server;
@@ -60,6 +66,7 @@ public class MqttService extends Service implements MqttCallback {
     Boolean tts_OK;
 //    Boolean tts_TIME;
     Boolean connectionLost = false;
+    Integer timeReLost = 60000;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -74,7 +81,6 @@ public class MqttService extends Service implements MqttCallback {
         initBroadReceiver();
         Log.d(TAG, "onCreate");
     }
-
 
     public void initBroadReceiver() {
         IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_ON);
@@ -103,12 +109,11 @@ public class MqttService extends Service implements MqttCallback {
 
         MQTTclient = new MqttAndroidClient(this.getApplicationContext(), serverUri, clientId);
         options = new MqttConnectOptions();
-        options.setAutomaticReconnect(true);
+//        options.setAutomaticReconnect(true);
 
-        Log.e(TAG, "mqtt_username!=null " + String.valueOf(mqtt_username!=null));
-        Log.e(TAG, "!mqtt_username.equals('') " +String.valueOf( !mqtt_username.equals("")));
+        Log.i(TAG, "mqtt_username!=null " + String.valueOf(mqtt_username!=null));
+        Log.i(TAG, "!mqtt_username.equals('') " +String.valueOf( !mqtt_username.equals("")));
         if (mqtt_username!=null && !mqtt_username.equals("")){
-            Log.e(TAG, String.valueOf("mqtt_username" + mqtt_username!=null));
             options.setUserName(mqtt_username);
         }
         if (mqtt_password!=null && !mqtt_password.equals("")){
@@ -150,9 +155,11 @@ public class MqttService extends Service implements MqttCallback {
         Log.d(TAG, "startId :" + startId);
         Log.d(TAG, "flags :" + flags);
         Boolean net = checkInternet();
+
         if (intent != null && intent.getExtras() != null) {
             String status = intent.getStringExtra("status");
             Log.d(TAG, "status :" + status);
+
             switch (status) {
                 case "autoStart":
                     if (general_startBoot) {
@@ -199,14 +206,21 @@ public class MqttService extends Service implements MqttCallback {
             tts.shutdown();
             tts = null;
         }
+        if (myTimer!=null) {
+            myTimer.cancel();
+            myTimer = null;
+        }
         unregisterReceiver(br);
-        sendBrodecast("disconnect");
     }
 
     @Override
     public void connectionLost(Throwable throwable) {
-        connectionLost=true;
+
+        connectionLost = true;
         Log.d(TAG, "connectionLost");
+        myTimer = new Timer();
+        myReTimerTask = new ReTimerTask();
+        myTimer.schedule(myReTimerTask, 10000, timeReLost);
     }
 
     @Override
@@ -252,6 +266,10 @@ public class MqttService extends Service implements MqttCallback {
         }
         if (topic.equals(clientId + "/" + mqtt_device +"/comm/notification/alert")){
             alert(message.toString());
+        }
+        if (topic.equals(clientId + "/" + mqtt_device +"/comm/widget/one")){
+            updateInfoWidget();
+            Log.d(TAG, "widget");
         }
 
     }
@@ -304,16 +322,19 @@ public class MqttService extends Service implements MqttCallback {
                     toast.show();
                     sendBrodecast("Connection");
                     setSubscribe();
+                    Log.d(TAG, "Connection end");
                 }
 
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                    Log.d(TAG, "Connection Failure");
-                    toast = Toast.makeText(getApplicationContext(),
-                            "Connection Failure", Toast.LENGTH_SHORT);
-                    toast.show();
-                    sendBrodecast("ConnectionFailure");
-                    stopSelf();
+                    if (!connectionLost){
+                        Log.d(TAG, "Connection Failure");
+                        toast = Toast.makeText(getApplicationContext(),
+                                "Connection Failure", Toast.LENGTH_SHORT);
+                        toast.show();
+                        sendBrodecast("ConnectionFailure");
+                        stopSelf();
+                    }
                 }
             });
         } catch (MqttException e) {
@@ -324,35 +345,20 @@ public class MqttService extends Service implements MqttCallback {
     public void disconnect() {
         Log.d(TAG, "Disconnect start");
         Log.d(TAG, "Disconnect isConnected "+MQTTclient.isConnected());
-        if (MQTTclient.isConnected()||connectionLost) {
-            Log.d(TAG, "Disconnect START ");
-            try {
-                IMqttToken token = MQTTclient.disconnect();
-                token.setActionCallback(new IMqttActionListener() {
-                    @Override
-                    public void onSuccess(IMqttToken asyncActionToken) {
-                        options.setAutomaticReconnect(false);
-                        toast = Toast.makeText(getApplicationContext(),
-                                "Disconnect", Toast.LENGTH_SHORT);
-                        toast.show();
-                        Log.d(TAG, "Disconnect success");
-                        sendBrodecast("disconnect");
-                    }
-
-                    @Override
-                    public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                        Log.d(TAG, "Disconnect failure");
-                        toast = Toast.makeText(getApplicationContext(),
-                                "Disconnect failure", Toast.LENGTH_SHORT);
-                        toast.show();
-                        sendBrodecast("disconnectFailure");
-                    }
-                });
-            } catch (MqttException e) {
-                e.printStackTrace();
-            }
-
+        if (MQTTclient != null) {
+            MQTTclient.unregisterResources();
+            MQTTclient = null;
+            Log.d(TAG, "Disconnect success");
+            sendBrodecast("disconnect");
         }
+    }
+
+    private void updateInfoWidget(){
+        Intent intent = new Intent(this, AppWidgetOne.class);
+        intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+        int[] ids = {1};
+        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
+        sendBroadcast(intent);
     }
 
     private void pubOne() {
@@ -373,6 +379,7 @@ public class MqttService extends Service implements MqttCallback {
         publish("comm/display/timeOff", "");
         publish("comm/notification/simple", "");
         publish("comm/notification/alert", "");
+        publish("comm/widget/one", "");
     }
 
     private void setSubscribe() {
@@ -585,4 +592,22 @@ public class MqttService extends Service implements MqttCallback {
 
         sendBrodecast("Alert");
     }
+
+    class ReTimerTask extends TimerTask {
+        @Override
+        public void run() {
+            Log.i("Timer", "Start");
+            if (MQTTclient.isConnected()) {
+                myTimer.cancel();
+                myTimer = null;
+                connectionLost = false;
+                Log.i("Timer", "Stop");
+            }else{
+                connect();
+            }
+        }
+    }
+
+
+
 }

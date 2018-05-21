@@ -13,6 +13,8 @@ import android.os.Bundle;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.PreferenceActivity;
+import android.support.v4.view.GravityCompat;
+import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBar;
 import android.preference.PreferenceFragment;
 import android.preference.PreferenceManager;
@@ -133,7 +135,10 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             Log.d(TAG,  "click");
 //            startActivity(new Intent(getActivity(), MainActivity.class));
 //            return true;
-            finish();
+            if (android.os.Build.VERSION.SDK_INT <= Build.VERSION_CODES.LOLLIPOP) {
+                finish();
+            }
+
         }
         return super.onOptionsItemSelected(item);
     }
@@ -219,7 +224,6 @@ public class SettingsActivity extends AppCompatPreferenceActivity {
             addPreferencesFromResource(R.xml.pref_mqtt);
             setHasOptionsMenu(true);
 
-            bindPreferenceSummaryToValue(findPreference("mqtt_list_sec"));
             bindPreferenceSummaryToValue(findPreference("mqtt_server"));
             bindPreferenceSummaryToValue(findPreference("mqtt_port"));
             bindPreferenceSummaryToValue(findPreference("mqtt_login"));

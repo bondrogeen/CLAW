@@ -1,5 +1,7 @@
 package ru.codedevice.claw;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBar;
@@ -8,6 +10,8 @@ import android.os.Bundle;
 import android.text.method.LinkMovementMethod;
 import android.util.Log;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.ImageView;
 import android.widget.TextView;
 
 public class AboutActivity extends AppCompatActivity {
@@ -19,10 +23,15 @@ public class AboutActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_about);
         setupActionBar();
-//        TextView GitHub = findViewById(R.id.text_view_LinkGitHub);
-//        GitHub.setMovementMethod(LinkMovementMethod.getInstance());
-        TextView LinkDonations = findViewById(R.id.text_view_LinkDonations);
-        LinkDonations.setMovementMethod(LinkMovementMethod.getInstance());
+        ImageView LinkDonations = findViewById(R.id.text_view_LinkDonations);
+        LinkDonations.setOnClickListener(new View.OnClickListener() {
+            //@Override
+            public void onClick(View v) {
+                Log.v(TAG, " click");
+                Intent browserIntent = new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=HYHDHXVH6UE3C"));
+                startActivity(browserIntent);
+            }
+        });
     }
 
     private void setupActionBar() {

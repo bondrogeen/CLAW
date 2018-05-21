@@ -20,7 +20,7 @@ public class AppReceiver extends BroadcastReceiver {
         if (action.equals("android.net.conn.CONNECTIVITY_CHANGE")){
             if (checkInternet(context)){
                 Log.i(TAG, "yes internet");
-                i.putExtra("status","autoStart");
+//                i.putExtra("status","autoStart");
                 context.startService(i);
             }else{
                 Log.i(TAG, "no internet");
