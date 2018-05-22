@@ -6,6 +6,12 @@
         android:summary="@string/general_summary_start_on"
         android:title="@string/general_title_start_on" />
 
+    <SwitchPreference
+        android:defaultValue="false"
+        android:key="general_startNet"
+        android:summary="@string/general_summary_start_net"
+        android:title="@string/general_title_start_net" />
+
 
     <ListPreference
         android:defaultValue="0"

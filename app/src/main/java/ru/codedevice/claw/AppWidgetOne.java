@@ -23,7 +23,7 @@ import java.util.Arrays;
 public class AppWidgetOne extends AppWidgetProvider {
 
     String TAG = "AppWidgetOne";
-    SharedPreferences settings;
+    public static String ACTION_WIDGET_RECEIVER = "ActionReceiverWidget";
 
     public static Bitmap BuildUpdate(String time, int size , Context context){
         Paint paint = new Paint();
@@ -45,22 +45,35 @@ public class AppWidgetOne extends AppWidgetProvider {
 
     }
 
-    public void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId) {
-        settings = PreferenceManager.getDefaultSharedPreferences(context);
-        String type = settings.getString("Type_widget_"+appWidgetId, "");
+    public void updateAppWidget(Context context, AppWidgetManager appWidgetManager, int appWidgetId, SharedPreferences sp) {
 
-//        CharSequence widgetText = context.getString(R.string.appwidget_text);
-        // Construct the RemoteViews object
+        String widgetText = sp.getString(ConfigWidget.WIDGET_TEXT + appWidgetId, "--");
+        String widgetType = sp.getString(ConfigWidget.WIDGET_TYPE + appWidgetId, "text");
+        String widgetName = sp.getString(ConfigWidget.WIDGET_NAME + appWidgetId, "");
+
+//        if (widgetText == null) return;
+
+        Log.i(TAG, String.valueOf(appWidgetId));
         RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.app_widget_one);
-        views.setImageViewBitmap(R.id.image_time,BuildUpdate("20:25",100,context));
-        views.setImageViewBitmap(R.id.image_date,BuildUpdate("Время",50,context));
+
+        if(widgetType.equals("text")) {
+//            RemoteViews views = new RemoteViews(context.getPackageName(), R.layout.app_widget_one);
+            views.setImageViewBitmap(R.id.image_time, BuildUpdate(widgetText, 100, context));
+            views.setImageViewBitmap(R.id.image_date, BuildUpdate("Время", 50, context));
 //        views.setTextViewText(R.id.appwidget_text, widgetText);
 
-        Intent configIntent = new Intent(context, ConfigWidget.class);
-        configIntent.setAction(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE);
-        configIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
-        PendingIntent pIntent = PendingIntent.getActivity(context, appWidgetId, configIntent, 0);
-        views.setOnClickPendingIntent(R.id.image_time, pIntent);
+            Intent active = new Intent(context, AppReceiver.class);
+            active.setAction(ACTION_WIDGET_RECEIVER);
+            active.putExtra("id", String.valueOf(appWidgetId));
+            active.putExtra("name", widgetName);
+            PendingIntent actionPendingIntent = PendingIntent.getBroadcast(context, 0, active, 0);
+            views.setOnClickPendingIntent(R.id.image_time, actionPendingIntent);
+        }
+//        Intent configIntent = new Intent(context, ConfigWidget.class);
+//        configIntent.setAction(AppWidgetManager.ACTION_APPWIDGET_CONFIGURE);
+//        configIntent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_ID, appWidgetId);
+//        PendingIntent pIntent = PendingIntent.getActivity(context, appWidgetId, configIntent, 0);
+//        views.setOnClickPendingIntent(R.id.image_time, pIntent);
 
 
 
@@ -72,10 +85,10 @@ public class AppWidgetOne extends AppWidgetProvider {
     public void onUpdate(Context context, AppWidgetManager appWidgetManager, int[] appWidgetIds) {
         Log.i(TAG, "onUpdate");
         Log.i(TAG, "appWidgetIds"+ Arrays.toString(appWidgetIds));
-
+        SharedPreferences sp = context.getSharedPreferences(
+                ConfigWidget.WIDGET_PREF, Context.MODE_PRIVATE);
         for (int appWidgetId : appWidgetIds) {
-            Log.i(TAG, "appWidgetIds"+ appWidgetId);
-            updateAppWidget(context, appWidgetManager, appWidgetId);
+            updateAppWidget(context, appWidgetManager, appWidgetId, sp);
         }
 
     }
@@ -91,6 +104,20 @@ public class AppWidgetOne extends AppWidgetProvider {
     public void onDisabled(Context context) {
         Log.i(TAG, "onDisabled");
         // Enter relevant functionality for when the last widget is disabled
+    }
+
+    @Override
+    public void onDeleted(Context context, int[] appWidgetIds) {
+        super.onDeleted(context, appWidgetIds);
+        Log.d(TAG, "onDeleted " + Arrays.toString(appWidgetIds));
+        // Удаляем Preferences
+        SharedPreferences.Editor editor = context.getSharedPreferences(
+                ConfigWidget.WIDGET_PREF, Context.MODE_PRIVATE).edit();
+        for (int widgetID : appWidgetIds) {
+            editor.remove(ConfigWidget.WIDGET_TEXT + widgetID);
+            editor.remove(ConfigWidget.WIDGET_COLOR + widgetID);
+        }
+        editor.commit();
     }
 }
 

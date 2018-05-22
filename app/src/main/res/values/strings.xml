@@ -32,7 +32,10 @@
     <string name="pref_header_general">General</string>
 
     <string name="general_summary_start_on">Run applications when you turn on</string>
-    <string name="general_title_start_on">Auto start</string>
+    <string name="general_title_start_on">Autostart boot</string>
+    <string name="general_summary_start_net">Run the application when the connection is changed</string>
+    <string name="general_title_start_net">Autostart connection</string>
+
 
     <string-array name="general_list_titles">
         <item>No</item>
@@ -116,6 +119,5 @@
     <string name="general_title_timer">Data sending period</string>
     <string name="appwidget_text">Claw</string>
     <string name="add_widget">Add widget</string>
-
 
 </resources>

@@ -161,16 +161,6 @@ public class MqttService extends Service implements MqttCallback {
             Log.d(TAG, "status :" + status);
 
             switch (status) {
-                case "autoStart":
-                    if (general_startBoot) {
-                        Log.d(TAG, "autoStart isConnected : " + MQTTclient.isConnected());
-                        Log.d(TAG, "autoStart net : " + net);
-                        if (!MQTTclient.isConnected() && net) {
-                            connect();
-                            Log.d(TAG, "autoStart");
-                        }
-                    }
-                    break;
                 case "screen":
                     publish("info/display/status", getDisplay());
                     break;
