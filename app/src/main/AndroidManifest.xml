@@ -89,7 +89,7 @@
             android:label="@string/title_activity_settings" />
 
         <service
-            android:name=".MqttService"
+            android:name=".AppMqttService"
             android:enabled="true"
             android:exported="true" />
 

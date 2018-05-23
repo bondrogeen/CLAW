@@ -25,12 +25,15 @@ import android.util.Log;
 import android.widget.Toast;
 import org.eclipse.paho.android.service.MqttAndroidClient;
 import org.eclipse.paho.client.mqttv3.IMqttActionListener;
+import org.eclipse.paho.client.mqttv3.MqttPingSender;
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
 import org.eclipse.paho.client.mqttv3.IMqttToken;
 import org.eclipse.paho.client.mqttv3.MqttCallback;
 import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.eclipse.paho.client.mqttv3.internal.ClientComms;
+
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -38,9 +41,9 @@ import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class MqttService extends Service implements MqttCallback {
+public class AppMqttService extends Service implements MqttCallback {
 
-    final String TAG = "MqttService";
+    final String TAG = "AppMqttService";
 
     MqttAndroidClient MQTTclient;
     MqttConnectOptions options;
@@ -67,6 +70,7 @@ public class MqttService extends Service implements MqttCallback {
 //    Boolean tts_TIME;
     Boolean connectionLost = false;
     Integer timeReLost = 60000;
+    String topic = "comm/*";
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -109,7 +113,8 @@ public class MqttService extends Service implements MqttCallback {
 
         MQTTclient = new MqttAndroidClient(this.getApplicationContext(), serverUri, clientId);
         options = new MqttConnectOptions();
-//        options.setAutomaticReconnect(true);
+        options.setAutomaticReconnect(true);
+        options.setCleanSession(false);
 
         Log.i(TAG, "mqtt_username!=null " + String.valueOf(mqtt_username!=null));
         Log.i(TAG, "!mqtt_username.equals('') " +String.valueOf( !mqtt_username.equals("")));
@@ -169,8 +174,19 @@ public class MqttService extends Service implements MqttCallback {
                     String value = intent.getStringExtra("value");
                     publish(topic, value);
                     break;
+                case "widget":
+                    String textName = intent.getStringExtra("textName");
+                    String textType = intent.getStringExtra("textType");
+                    if(textType.equals(ConfigWidget.WIDGET_TYPE_TEXT_AND_TITLE)){
+                        publish("comm/widget/"+textName, "");
+                    }
+                    if(textType.equals(ConfigWidget.WIDGET_TYPE_BUTTON)){
+//                        publish("info/widget/"+textName, "");
+                    }
+                    break;
             }
         } else {
+            Log.i(TAG, "isConnected() "+MQTTclient.isConnected());
             if (!MQTTclient.isConnected() && net) {
                 connect();
                 Log.d(TAG, "Connect MQTT");
@@ -208,9 +224,9 @@ public class MqttService extends Service implements MqttCallback {
 
         connectionLost = true;
         Log.d(TAG, "connectionLost");
-        myTimer = new Timer();
-        myReTimerTask = new ReTimerTask();
-        myTimer.schedule(myReTimerTask, 10000, timeReLost);
+//        myTimer = new Timer();
+//        myReTimerTask = new ReTimerTask();
+//        myTimer.schedule(myReTimerTask, 10000, timeReLost);
     }
 
     @Override
@@ -288,13 +304,15 @@ public class MqttService extends Service implements MqttCallback {
     }
 
     public void publish(String topic, String payload) {
-        byte[] encodedPayload = new byte[0];
-        try {
-            encodedPayload = payload.getBytes("UTF-8");
-            MqttMessage message = new MqttMessage(encodedPayload);
-            MQTTclient.publish(clientId + "/" + mqtt_device + "/" + topic, message);
-        } catch (UnsupportedEncodingException | MqttException e) {
-            e.printStackTrace();
+        if(MQTTclient.isConnected()) {
+            byte[] encodedPayload = new byte[0];
+            try {
+                encodedPayload = payload.getBytes("UTF-8");
+                MqttMessage message = new MqttMessage(encodedPayload);
+                MQTTclient.publish(clientId + "/" + mqtt_device + "/" + topic, message);
+            } catch (UnsupportedEncodingException | MqttException e) {
+                e.printStackTrace();
+            }
         }
     }
 
@@ -336,8 +354,20 @@ public class MqttService extends Service implements MqttCallback {
         Log.d(TAG, "Disconnect start");
         Log.d(TAG, "Disconnect isConnected "+MQTTclient.isConnected());
         if (MQTTclient != null) {
-            MQTTclient.unregisterResources();
+//            if (MQTTclient.isConnected()) {
+//                MQTTclient.close();
+//            }
+//            options.setAutomaticReconnect(false);
+
+            try {
+                MQTTclient.disconnect();
+            } catch (MqttException e) {
+                e.printStackTrace();
+            }
+//            MQTTclient.unregisterResources();
+//            MQTTclient.close();
             MQTTclient = null;
+//            stopService(new Intent(context, MqttService.class));
             Log.d(TAG, "Disconnect success");
             sendBrodecast("disconnect");
         }
@@ -373,7 +403,6 @@ public class MqttService extends Service implements MqttCallback {
     }
 
     private void setSubscribe() {
-        String topic = "comm/*";
         int qos = 1;
         try {
             IMqttToken subToken = MQTTclient.subscribe(clientId + "/" + mqtt_device +"/"+topic, qos);

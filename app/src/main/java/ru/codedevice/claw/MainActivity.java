@@ -76,12 +76,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             @Override
             public void onClick(View v) {
                 Log.d(TAG,  "Click button Start");
-                if(isMyServiceRunning(MqttService.class)){
-                    stopService(new Intent(MainActivity.this, MqttService.class));
+                if(isMyServiceRunning(AppMqttService.class)){
+                    stopService(new Intent(MainActivity.this, AppMqttService.class));
                     mqttStart.setBackgroundColor(Color.GREEN);
                     mqttStart.setText(R.string.textButtonStart_start);
                 }else{
-                    startService(new Intent(MainActivity.this, MqttService.class));
+                    startService(new Intent(MainActivity.this, AppMqttService.class));
                 }
                 mqttStart.setEnabled(false);
             }
@@ -91,7 +91,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             @Override
             public void onClick(View v) {
                 Log.d(TAG,  "Click button Send");
-                if(isMyServiceRunning(MqttService.class)){
+                if(isMyServiceRunning(AppMqttService.class)){
                     String topic = mqttTextTopic.getText().toString();
                     String value = mqttTextValue.getText().toString();
                     if (value.equals("")){
@@ -106,7 +106,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     }
 
                     if(!topic.equals("") && !value.equals("")){
-                        Intent service = new Intent(MainActivity.this, MqttService.class);
+                        Intent service = new Intent(MainActivity.this, AppMqttService.class);
                         service.putExtra("topic", topic);
                         service.putExtra("status", "publish");
                         service.putExtra("value", value);
@@ -132,13 +132,13 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         NavigationView navigationView = findViewById(R.id.nav_view);
         navigationView.setNavigationItemSelectedListener(this);
 
-        if(isMyServiceRunning(MqttService.class)){
-            Log.d(TAG,  "MqttService is run");
+        if(isMyServiceRunning(AppMqttService.class)){
+            Log.d(TAG,  "AppMqttService is run");
             mqttStart.setBackgroundColor(Color.RED);
             mqttStart.setText(R.string.textButtonStart_stop);
             mqttSend.setEnabled(true);
         }else{
-            Log.d(TAG,  "MqttService is not run");
+            Log.d(TAG,  "AppMqttService is not run");
             mqttStart.setBackgroundColor(Color.GREEN);
             mqttStart.setText(R.string.textButtonStart_start);
             mqttSend.setEnabled(false);

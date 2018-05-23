@@ -1,17 +1,13 @@
 package ru.codedevice.claw;
 
-import android.appwidget.AppWidgetManager;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
-import android.os.Build;
-import android.os.Bundle;
 import android.preference.PreferenceManager;
 import android.util.Log;
-import android.widget.Toast;
 
 public class AppReceiver extends BroadcastReceiver {
 
@@ -32,7 +28,7 @@ public class AppReceiver extends BroadcastReceiver {
 
         String action = intent.getAction();
         Log.i(TAG, "Action : " + action);
-        i = new Intent(context, MqttService.class);
+        i = new Intent(context, AppMqttService.class);
         if (action.equals("android.net.conn.CONNECTIVITY_CHANGE") && general_startNet){
             if (checkInternet(context)){
                 Log.i(TAG, "yes internet");
