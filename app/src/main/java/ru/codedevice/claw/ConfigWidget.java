@@ -29,15 +29,17 @@ public class ConfigWidget extends AppCompatActivity {
     String textText;
     String textName;
     String textTitle;
+    String textValue;
 
     public final static String WIDGET_PREF = "widget_settings";
     public final static String WIDGET_KEY_TYPE = "widget_type_";
     public final static String WIDGET_KEY_TEXT = "widget_text_";
     public final static String WIDGET_KEY_TITLE = "widget_title_";
     public final static String WIDGET_KEY_NAME = "widget_name_";
+    public final static String WIDGET_KEY_VALUE = "widget_value_";
     public final static String WIDGET_KEY_COLOR = "widget_color_";
 
-    public final static String WIDGET_TYPE_TEXT_AND_TITLE = "testTitle";
+    public final static String WIDGET_TYPE_TEXT_AND_TITLE = "textAndTitle";
     public final static String WIDGET_TYPE_BUTTON = "button";
 
     @Override
@@ -64,6 +66,7 @@ public class ConfigWidget extends AppCompatActivity {
         textType = ConfigWidget.WIDGET_TYPE_TEXT_AND_TITLE;
         textName = "Widget_"+appWidgetId;
         textTitle = "Title";
+        textValue = "false";
 
         text = findViewById(R.id.widget_text);
         name = findViewById(R.id.widget_name);
@@ -103,30 +106,26 @@ public class ConfigWidget extends AppCompatActivity {
         textText = String.valueOf(text.getText());
         textTitle = String.valueOf(title.getText());
         textType = GetCheckedRadioButton(type_group);
-        Log.d(TAG, "textName " + textName);
-        Log.d(TAG, "textText " + textText);
-        Log.d(TAG, "textType " + textType);
-        Log.d(TAG, "textTitle " + textTitle);
 
         SharedPreferences.Editor editor = settings.edit();
         editor.putString(WIDGET_KEY_TEXT + appWidgetId, textText);
-        editor.putString(WIDGET_KEY_NAME+ appWidgetId, textName);
+        editor.putString(WIDGET_KEY_NAME + appWidgetId, textName);
         editor.putString(WIDGET_KEY_TYPE + appWidgetId, textType);
         editor.putString(WIDGET_KEY_TITLE + appWidgetId, textTitle);
+        editor.putString(WIDGET_KEY_VALUE + appWidgetId, textValue);
         editor.commit();
-        setResult(RESULT_OK, resultValue);
-        Log.d(TAG, "finish config " + appWidgetId);
 
         AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(this);
         AppWidgetOne.updateAppWidget(this, appWidgetManager, appWidgetId, settings);
 
         Intent service = new Intent(ConfigWidget.this, AppMqttService.class);
-        service.putExtra("status", "widget");
-        service.putExtra("textName", textName);
-        service.putExtra("textText", textText);
-        service.putExtra("textTitle", textTitle);
-        service.putExtra("textType", textType);
-
+        service.putExtra("status", "widget_create");
+        service.putExtra("widgetName", textName);
+        service.putExtra("widgetText", textText);
+        service.putExtra("widgetId", appWidgetId);
+        service.putExtra("widgetType", textType);
+        Log.d(TAG, "finish config " + appWidgetId);
         startService(service);
+        setResult(RESULT_OK, resultValue);
     }
 }

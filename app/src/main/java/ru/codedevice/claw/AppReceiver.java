@@ -52,20 +52,29 @@ public class AppReceiver extends BroadcastReceiver {
         }
 
         if (action.equals("ActionReceiverWidget")) {
-            String id = "null";
-            String name = "null";
-
+            String widgetId = "null";
+            String widgetName = "null";
+            String widgetValue = "null";
+            String widgetType = "null";
             try {
-                id = intent.getStringExtra("id");
-                name = intent.getStringExtra("name");
+                widgetId = intent.getStringExtra("widgetId");
+                widgetName = intent.getStringExtra("widgetName");
+                widgetType = intent.getStringExtra("widgetType");
             } catch (NullPointerException e) {
                 Log.e(TAG, "msg = null");
             }
-            Log.i(TAG, "id = "+id);
-            Log.i(TAG, "name = "+name);
+            i.putExtra("status","widget");
+            i.putExtra("widgetName",widgetName);
+            i.putExtra("widgetType",widgetType);
+            i.putExtra("widgetId",widgetId);
+            context.startService(i);
+
+//            Log.i(TAG, "AppReceiver widgetId = "+widgetId);
+//            Log.i(TAG, "AppReceiver widgetName = "+widgetName);
+//            Log.i(TAG, "AppReceiver widgetValue = "+widgetValue);
+//            Log.i(TAG, "AppReceiver widgetType = "+widgetType);
 
         }
-
     }
 
     public  boolean checkInternet(Context context) {

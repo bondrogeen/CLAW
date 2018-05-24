@@ -33,6 +33,8 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.internal.ClientComms;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
@@ -48,13 +50,12 @@ public class AppMqttService extends Service implements MqttCallback {
     MqttAndroidClient MQTTclient;
     MqttConnectOptions options;
     SharedPreferences settings;
+    SharedPreferences sp;
     TextToSpeech tts;
     Toast toast;
     BroadcastReceiver br;
     PowerManager.WakeLock wl = null;
     Context context;
-    Timer myTimer;
-    ReTimerTask myReTimerTask;
 
     String clientId;
     String mqtt_server;
@@ -65,12 +66,17 @@ public class AppMqttService extends Service implements MqttCallback {
     String mqtt_password;
     Boolean run;
     Boolean general_startBoot;
-//    Boolean mqttRun;
     Boolean tts_OK;
-//    Boolean tts_TIME;
     Boolean connectionLost = false;
-    Integer timeReLost = 60000;
     String topic = "comm/*";
+    JSONObject wedgetNameJSON;
+
+    String widgetName;
+    String widgetId;
+    String widgetType;
+    String widgetValue;
+    String widgetText;
+    String widgetTitle;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -83,6 +89,7 @@ public class AppMqttService extends Service implements MqttCallback {
         initTTS();
         initMQTT();
         initBroadReceiver();
+        sp = getSharedPreferences(ConfigWidget.WIDGET_PREF, MODE_PRIVATE);
         Log.d(TAG, "onCreate");
     }
 
@@ -164,7 +171,6 @@ public class AppMqttService extends Service implements MqttCallback {
         if (intent != null && intent.getExtras() != null) {
             String status = intent.getStringExtra("status");
             Log.d(TAG, "status :" + status);
-
             switch (status) {
                 case "screen":
                     publish("info/display/status", getDisplay());
@@ -175,15 +181,65 @@ public class AppMqttService extends Service implements MqttCallback {
                     publish(topic, value);
                     break;
                 case "widget":
-                    String textName = intent.getStringExtra("textName");
-                    String textType = intent.getStringExtra("textType");
-                    if(textType.equals(ConfigWidget.WIDGET_TYPE_TEXT_AND_TITLE)){
-                        publish("comm/widget/"+textName, "");
-                    }
-                    if(textType.equals(ConfigWidget.WIDGET_TYPE_BUTTON)){
-//                        publish("info/widget/"+textName, "");
+                    widgetName = intent.getStringExtra("widgetName");
+                    widgetId = intent.getStringExtra("widgetId");
+                    widgetType = intent.getStringExtra("widgetType");
+                    widgetValue = sp.getString(ConfigWidget.WIDGET_KEY_VALUE + widgetId, "false");
+
+                    Log.e(TAG, "AppMqttService widgetId = " + widgetId);
+                    Log.e(TAG, "AppMqttService widgetName = " + widgetName);
+                    Log.e(TAG, "AppMqttService widgetType = " + widgetType);
+                    if (MQTTclient.isConnected()) {
+                        if (widgetType.equals(ConfigWidget.WIDGET_TYPE_TEXT_AND_TITLE)) {
+                            publish("info/widget/" + widgetName + "/tap", widgetValue);
+                        }
+                        if (widgetType.equals(ConfigWidget.WIDGET_TYPE_BUTTON)) {
+                            publish("info/widget/" + widgetName + "/tap", widgetValue);
+                        }
+                        SharedPreferences.Editor editor = sp.edit();
+                        widgetValue = (widgetValue.equals("false") ? "true" : "false");
+                        Log.e(TAG, "AppMqttService widgetValue revirs = " + widgetValue);
+                        editor.putString(ConfigWidget.WIDGET_KEY_VALUE + widgetId, widgetValue);
+                        editor.commit();
+
+                        AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(this);
+                        AppWidgetOne.updateAppWidget(this, appWidgetManager, Integer.parseInt(widgetId), sp);
                     }
                     break;
+                case "widget_create":
+                    widgetName = intent.getStringExtra("widgetName");
+
+                    try {
+                        wedgetNameJSON = AppWidgetOne.allWidget.getJSONObject(widgetName);
+                        widgetId = wedgetNameJSON.getString("ID");
+                        widgetType = wedgetNameJSON.getString("TYPE");
+                        widgetText = wedgetNameJSON.getString("TEXT");
+                    } catch (JSONException e) {
+                        e.printStackTrace();
+                    }
+
+                    Log.e(TAG, "AppMqttService widgetId = " + widgetId);
+                    Log.e(TAG, "AppMqttService widgetName = " + widgetName);
+                    Log.e(TAG, "AppMqttService widgetType = " + widgetType);
+                    Log.e(TAG, "AppMqttService widgetText = " + widgetText);
+
+                    widgetValue = sp.getString(ConfigWidget.WIDGET_KEY_VALUE + widgetId, "false");
+                    widgetTitle = sp.getString(ConfigWidget.WIDGET_KEY_TITLE + widgetId, "false");
+                    if (MQTTclient.isConnected()) {
+                        if (widgetType.equals(ConfigWidget.WIDGET_TYPE_TEXT_AND_TITLE)) {
+                            publish("comm/widget/" + widgetName + "/text", widgetText);
+                            publish("comm/widget/" + widgetName + "/title", widgetTitle);
+                        }
+                        if (widgetType.equals(ConfigWidget.WIDGET_TYPE_BUTTON)) {
+                            publish("comm/widget/" + widgetName + "/button", widgetValue);
+                            publish("comm/widget/" + widgetName + "/title", widgetTitle);
+                        }
+                    }
+                    break;
+            }
+
+            if(!connectionLost){
+                stopSelf();
             }
         } else {
             Log.i(TAG, "isConnected() "+MQTTclient.isConnected());
@@ -212,21 +268,12 @@ public class AppMqttService extends Service implements MqttCallback {
             tts.shutdown();
             tts = null;
         }
-        if (myTimer!=null) {
-            myTimer.cancel();
-            myTimer = null;
-        }
         unregisterReceiver(br);
     }
 
     @Override
     public void connectionLost(Throwable throwable) {
-
-        connectionLost = true;
         Log.d(TAG, "connectionLost");
-//        myTimer = new Timer();
-//        myReTimerTask = new ReTimerTask();
-//        myTimer.schedule(myReTimerTask, 10000, timeReLost);
     }
 
     @Override
@@ -273,9 +320,34 @@ public class AppMqttService extends Service implements MqttCallback {
         if (topic.equals(clientId + "/" + mqtt_device +"/comm/notification/alert")){
             alert(message.toString());
         }
-        if (topic.equals(clientId + "/" + mqtt_device +"/comm/widget/one")){
-            updateInfoWidget();
-            Log.d(TAG, "widget");
+        if (topic.contains(clientId + "/" + mqtt_device +"/comm/widget/")){
+            String[] arrTopic;
+            arrTopic = topic.split("/");
+            Log.d(TAG, "topic "+topic);
+            Log.d(TAG, "arrTopic "+arrTopic[4]);
+            wedgetNameJSON = AppWidgetOne.allWidget.getJSONObject(arrTopic[4]);
+            if(wedgetNameJSON!=null){
+                SharedPreferences.Editor editor = sp.edit();
+                if(arrTopic[5].equals("text")){
+                    editor.putString(ConfigWidget.WIDGET_KEY_TEXT + wedgetNameJSON.getString("ID"), String.valueOf(message));
+                    publish("comm/widget/"+arrTopic[4]+"/text", String.valueOf(message));
+                    publish("info/widget/"+arrTopic[4]+"/text", String.valueOf(message));
+                }
+                if(arrTopic[5].equals("button")){
+                    editor.putString(ConfigWidget.WIDGET_KEY_VALUE + wedgetNameJSON.getString("ID"), String.valueOf(message));
+                    publish("comm/widget/"+arrTopic[4]+"/button", String.valueOf(message));
+                    publish("info/widget/"+arrTopic[4]+"/tap", String.valueOf(message));
+                }
+                if(arrTopic[5].equals("title")){
+                    editor.putString(ConfigWidget.WIDGET_KEY_TITLE + wedgetNameJSON.getString("ID"), String.valueOf(message));
+                    publish("comm/widget/"+arrTopic[4]+"/title", String.valueOf(message));
+                    publish("info/widget/"+arrTopic[4]+"/title", String.valueOf(message));
+                }
+                editor.commit();
+                AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(this);
+                AppWidgetOne.updateAppWidget(this, appWidgetManager, Integer.parseInt(wedgetNameJSON.getString("ID")), sp);
+            }
+            Log.d(TAG, "arrTopic "+AppWidgetOne.allWidget.getJSONObject(arrTopic[4]));
         }
 
     }
@@ -317,6 +389,7 @@ public class AppMqttService extends Service implements MqttCallback {
     }
 
     public void connect() {
+        connectionLost = true;
         try {
             IMqttToken token = MQTTclient.connect(options);
             token.setActionCallback(new IMqttActionListener() {
@@ -335,14 +408,12 @@ public class AppMqttService extends Service implements MqttCallback {
 
                 @Override
                 public void onFailure(IMqttToken asyncActionToken, Throwable exception) {
-                    if (!connectionLost){
-                        Log.d(TAG, "Connection Failure");
-                        toast = Toast.makeText(getApplicationContext(),
-                                "Connection Failure", Toast.LENGTH_SHORT);
-                        toast.show();
-                        sendBrodecast("ConnectionFailure");
-                        stopSelf();
-                    }
+                    Log.d(TAG, "Connection Failure");
+                    toast = Toast.makeText(getApplicationContext(),
+                            "Connection Failure", Toast.LENGTH_SHORT);
+                    toast.show();
+                    sendBrodecast("ConnectionFailure");
+                    stopSelf();
                 }
             });
         } catch (MqttException e) {
@@ -353,7 +424,7 @@ public class AppMqttService extends Service implements MqttCallback {
     public void disconnect() {
         Log.d(TAG, "Disconnect start");
         Log.d(TAG, "Disconnect isConnected "+MQTTclient.isConnected());
-        if (MQTTclient != null) {
+        if (MQTTclient != null && connectionLost) {
 //            if (MQTTclient.isConnected()) {
 //                MQTTclient.close();
 //            }
@@ -369,17 +440,16 @@ public class AppMqttService extends Service implements MqttCallback {
             MQTTclient = null;
 //            stopService(new Intent(context, MqttService.class));
             Log.d(TAG, "Disconnect success");
-            sendBrodecast("disconnect");
         }
+        sendBrodecast("disconnect");
     }
 
-    private void updateInfoWidget(){
-        Intent intent = new Intent(this, AppWidgetOne.class);
-        intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
-        int[] ids = {1};
-        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids);
-        sendBroadcast(intent);
-    }
+//    private void updateInfoWidget(int[] id){
+//        Intent intent = new Intent(this, AppWidgetOne.class);
+//        intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+//        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, id);
+//        sendBroadcast(intent);
+//    }
 
     private void pubOne() {
         publish("info/general/BRAND", Build.BRAND);
@@ -399,7 +469,6 @@ public class AppMqttService extends Service implements MqttCallback {
         publish("comm/display/timeOff", "");
         publish("comm/notification/simple", "");
         publish("comm/notification/alert", "");
-        publish("comm/widget/one", "");
     }
 
     private void setSubscribe() {
@@ -562,7 +631,7 @@ public class AppMqttService extends Service implements MqttCallback {
         Log.i("notification : ", "String  : "+str);
         String[] subStr;
         subStr = str.split(";");
-        String text = "";
+        String text;
         String title = "";
         if (subStr.length >= 2){
             text = subStr[1];
@@ -611,22 +680,4 @@ public class AppMqttService extends Service implements MqttCallback {
 
         sendBrodecast("Alert");
     }
-
-    class ReTimerTask extends TimerTask {
-        @Override
-        public void run() {
-            Log.i("Timer", "Start");
-            if (MQTTclient.isConnected()) {
-                myTimer.cancel();
-                myTimer = null;
-                connectionLost = false;
-                Log.i("Timer", "Stop");
-            }else{
-                connect();
-            }
-        }
-    }
-
-
-
 }
