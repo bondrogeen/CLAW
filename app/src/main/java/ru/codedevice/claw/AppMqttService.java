@@ -33,12 +33,14 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 import org.eclipse.paho.client.mqttv3.internal.ClientComms;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Locale;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -70,6 +72,7 @@ public class AppMqttService extends Service implements MqttCallback {
     Boolean connectionLost = false;
     String topic = "comm/*";
     JSONObject wedgetNameJSON;
+    JSONObject allWedgetJSON;
 
     String widgetName;
     String widgetId;
@@ -77,6 +80,7 @@ public class AppMqttService extends Service implements MqttCallback {
     String widgetValue;
     String widgetText;
     String widgetTitle;
+    int notificationIdNumber = 1;
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -102,7 +106,7 @@ public class AppMqttService extends Service implements MqttCallback {
     public void initSettings() {
 
         settings = PreferenceManager.getDefaultSharedPreferences(this);
-        clientId = "CLAW";
+        clientId = "MAC";
         mqtt_server = settings.getString("mqtt_server", "");
         mqtt_port = settings.getString("mqtt_port", "");
         serverUri = "tcp://" + mqtt_server + ":" + mqtt_port;
@@ -200,7 +204,7 @@ public class AppMqttService extends Service implements MqttCallback {
                         widgetValue = (widgetValue.equals("false") ? "true" : "false");
                         Log.e(TAG, "AppMqttService widgetValue revirs = " + widgetValue);
                         editor.putString(ConfigWidget.WIDGET_KEY_VALUE + widgetId, widgetValue);
-                        editor.commit();
+                        editor.apply();
 
                         AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(this);
                         AppWidgetOne.updateAppWidget(this, appWidgetManager, Integer.parseInt(widgetId), sp);
@@ -314,8 +318,11 @@ public class AppMqttService extends Service implements MqttCallback {
                 setDisplay(num);
             }
         }
-        if (topic.equals(clientId + "/" + mqtt_device +"/comm/notification/simple")){
+        if (topic.equals(clientId + "/" + mqtt_device +"/comm/notification/create")){
             notification(message.toString());
+        }
+        if (topic.equals(clientId + "/" + mqtt_device +"/comm/notification/delete")){
+            notificationDel(message.toString());
         }
         if (topic.equals(clientId + "/" + mqtt_device +"/comm/notification/alert")){
             alert(message.toString());
@@ -327,27 +334,31 @@ public class AppMqttService extends Service implements MqttCallback {
             Log.d(TAG, "arrTopic "+arrTopic[4]);
             wedgetNameJSON = AppWidgetOne.allWidget.getJSONObject(arrTopic[4]);
             if(wedgetNameJSON!=null){
+                Log.d(TAG, "wedgetNameJSON "+wedgetNameJSON);
+                Log.e(TAG, "wedgetNameJSON !null ");
                 SharedPreferences.Editor editor = sp.edit();
                 if(arrTopic[5].equals("text")){
+                    Log.d(TAG, "arrTopic[5].equals(\"text\")");
                     editor.putString(ConfigWidget.WIDGET_KEY_TEXT + wedgetNameJSON.getString("ID"), String.valueOf(message));
-                    publish("comm/widget/"+arrTopic[4]+"/text", String.valueOf(message));
+                    publish("comm/widget/"+arrTopic[4]+"/text", "");
                     publish("info/widget/"+arrTopic[4]+"/text", String.valueOf(message));
                 }
                 if(arrTopic[5].equals("button")){
+                    Log.d(TAG, "arrTopic[5].equals(\"button\")");
                     editor.putString(ConfigWidget.WIDGET_KEY_VALUE + wedgetNameJSON.getString("ID"), String.valueOf(message));
-                    publish("comm/widget/"+arrTopic[4]+"/button", String.valueOf(message));
+                    publish("comm/widget/"+arrTopic[4]+"/button", "");
                     publish("info/widget/"+arrTopic[4]+"/tap", String.valueOf(message));
                 }
                 if(arrTopic[5].equals("title")){
+                    Log.d(TAG, "arrTopic[5].equals(\"title\")");
                     editor.putString(ConfigWidget.WIDGET_KEY_TITLE + wedgetNameJSON.getString("ID"), String.valueOf(message));
-                    publish("comm/widget/"+arrTopic[4]+"/title", String.valueOf(message));
+                    publish("comm/widget/"+arrTopic[4]+"/title", "");
                     publish("info/widget/"+arrTopic[4]+"/title", String.valueOf(message));
                 }
                 editor.commit();
                 AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(this);
                 AppWidgetOne.updateAppWidget(this, appWidgetManager, Integer.parseInt(wedgetNameJSON.getString("ID")), sp);
             }
-            Log.d(TAG, "arrTopic "+AppWidgetOne.allWidget.getJSONObject(arrTopic[4]));
         }
 
     }
@@ -467,8 +478,42 @@ public class AppMqttService extends Service implements MqttCallback {
         publish("comm/display/mode", "");
         publish("comm/display/toWake", "");
         publish("comm/display/timeOff", "");
-        publish("comm/notification/simple", "");
+        publish("comm/notification/create", "");
+        publish("comm/notification/delete", "");
         publish("comm/notification/alert", "");
+        initWidget();
+
+    }
+
+    private void initWidget(){
+        allWedgetJSON = AppWidgetOne.allWidget;
+        JSONObject widgetKey;
+        Log.d(TAG, "lenth "+String.valueOf(allWedgetJSON.length()));
+        if (allWedgetJSON.length()>0){
+            Iterator<String> keysJSON = allWedgetJSON.keys();
+            while(keysJSON.hasNext()) {
+                String key = keysJSON.next();
+                Log.e(TAG,"key "+key);
+                try {
+                    widgetKey = allWedgetJSON.getJSONObject(key);
+                    Log.e(TAG,"widgetKey "+widgetKey);
+                    String Name = widgetKey.getString("NAME");
+                    String Type = widgetKey.getString("TYPE");
+                    String Text = widgetKey.getString("TEXT");
+                    String Title = widgetKey.getString("TITLE");
+                    String Value = widgetKey.getString("VALUE");
+                    if (Type.equals(ConfigWidget.WIDGET_TYPE_TEXT_AND_TITLE)) {
+                        publish("comm/widget/" + Name + "/text", Text);
+                        publish("comm/widget/" + Name + "/title", Title);
+                    }if (Type.equals(ConfigWidget.WIDGET_TYPE_BUTTON)) {
+                        publish("comm/widget/" + Name + "/button", Value);
+                        publish("comm/widget/" + Name + "/title", Title);
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 
     private void setSubscribe() {
@@ -610,6 +655,7 @@ public class AppMqttService extends Service implements MqttCallback {
         }
         return display;
     }
+
     private void setDisplay(int val){
         Log.i("setDisplay : ", String.valueOf(val));
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
@@ -627,21 +673,56 @@ public class AppMqttService extends Service implements MqttCallback {
 
     }
 
+    private void notificationDel(String str){
+        if(str.toLowerCase().equals("all")){
+            NotificationManager notificationManager =
+                    (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+            notificationManager.cancelAll();
+        }else{
+            if (str.matches("[0-9]*")) {
+                NotificationManager notificationManager =
+                        (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                notificationManager.cancel(Integer.parseInt(str));
+            }
+        }
+    }
     private void notification(String str){
         Log.i("notification : ", "String  : "+str);
-        String[] subStr;
-        subStr = str.split(";");
-        String text;
-        String title = "";
-        if (subStr.length >= 2){
-            text = subStr[1];
-            title = subStr[0];
-        }else{
-            text = str;
+        JSONObject nativeJSON = new JSONObject();
+        JSONObject tempJSON;
+        notificationIdNumber = notificationIdNumber+1;
+        try {
+            nativeJSON.put("text","");
+            nativeJSON.put("title","Title");
+            nativeJSON.put("id",notificationIdNumber);
+            nativeJSON.put("rightinfo","");
+        } catch (JSONException e) {
+            e.printStackTrace();
         }
-        Log.i("notification : ", "String  : "+ Arrays.toString(subStr));
-        Intent resultIntent = new Intent(this, MainActivity.class);
-        PendingIntent resultPendingIntent = PendingIntent.getActivity(this, 0, resultIntent,
+
+        String text = "";
+        String title = "";
+        String id = "";
+        String rightinfo = "";
+
+        tempJSON = parseJSONValid(nativeJSON,str);
+        nativeJSON = null;
+        try {
+            text = tempJSON.getString("text");
+            title = tempJSON.getString("title");
+            id = tempJSON.getString("id");
+            rightinfo = tempJSON.getString("rightinfo");
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+
+        Intent resultIntent = new Intent(this, NotificationActivity.class);
+        resultIntent.putExtra("id", id);
+        resultIntent.putExtra("text", text);
+        resultIntent.putExtra("title", title);
+
+        PendingIntent resultPendingIntent = PendingIntent.getActivity(this, Integer.parseInt(id), resultIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT);
 
         NotificationCompat.Builder builder =
@@ -651,6 +732,7 @@ public class AppMqttService extends Service implements MqttCallback {
                         .setContentText(text)
                         .setAutoCancel(true)
                         .setTicker(title)
+                        .setContentInfo(rightinfo)
                         .setWhen(System.currentTimeMillis())
                         .setDefaults(Notification.DEFAULT_ALL)
                         .setContentIntent(resultPendingIntent);
@@ -658,10 +740,48 @@ public class AppMqttService extends Service implements MqttCallback {
         Notification notification = builder.build();
 
         // Show Notification
-        NotificationManager notificationManager =
-                (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-        notificationManager.notify(1, notification);
+        NotificationManager notificationManager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        notificationManager.notify(Integer.parseInt(id), notification);
+        Log.i("notification : ", "id  : "+id);
+    }
 
+
+    public JSONObject parseJSONValid(JSONObject nativeObj, String str) {
+
+        JSONObject mergedObj = new JSONObject();
+        JSONObject parseObj = new JSONObject();;
+        try {
+            parseObj = new JSONObject(str);
+        } catch (JSONException ex) {
+            Log.i("notification : ", "No JSON");
+            try {
+                parseObj.put("text",str);
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+
+        Iterator i1 = nativeObj.keys();
+        Iterator i2 = parseObj.keys();
+        String tmp_key;
+        while(i1.hasNext()) {
+            tmp_key = (String) i1.next();
+            try {
+                mergedObj.put(tmp_key, nativeObj.get(tmp_key));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+        while(i2.hasNext()) {
+            tmp_key = (String) i2.next();
+            try {
+                mergedObj.put(tmp_key, parseObj.get(tmp_key));
+            } catch (JSONException e) {
+                e.printStackTrace();
+            }
+        }
+        Log.i("mergedObj : ", String.valueOf(mergedObj));
+        return mergedObj;
     }
 
     private void alert(String str){

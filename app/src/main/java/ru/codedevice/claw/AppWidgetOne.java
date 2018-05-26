@@ -21,6 +21,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.Arrays;
+import java.util.Iterator;
 
 /**
  * Implementation of App Widget functionality.
@@ -102,7 +103,10 @@ public class AppWidgetOne extends AppWidgetProvider {
             tempWidget.put("TEXT",widgetText);
             tempWidget.put("TYPE",widgetType);
             allWidget.put(widgetName,tempWidget);
-
+            tempWidget=null;
+            tempWidget = new JSONObject();
+            Log.e(TAG, "widgetName "+widgetName);
+            Log.e(TAG, "allWidget "+allWidget);
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -128,7 +132,7 @@ public class AppWidgetOne extends AppWidgetProvider {
             views = new RemoteViews(context.getPackageName(), R.layout.app_widget_button);
             views.setImageViewBitmap(R.id.image_title, BuildUpdateButton(widgetTitle, 100, context));
 //            Bitmap bitmap = BitmapFactory.decodeResource(context.getResources(), R.drawable.button_off);
-            if(widgetValue.equals("true")){
+            if(widgetValue.equals("false")){
                 views.setImageViewResource(R.id.image_button,R.drawable.button_on);
             }else{
                 views.setImageViewResource(R.id.image_button,R.drawable.button_off);
@@ -163,6 +167,9 @@ public class AppWidgetOne extends AppWidgetProvider {
     public void onDeleted(Context context, int[] appWidgetIds) {
         super.onDeleted(context, appWidgetIds);
         Log.d(TAG, "onDeleted " + Arrays.toString(appWidgetIds));
+        for (int appWidgetId : appWidgetIds) {
+            delWidgetJSON(String.valueOf(appWidgetId));
+        }
         // Удаляем Preferences
         SharedPreferences.Editor editor = context.getSharedPreferences(
                 ConfigWidget.WIDGET_PREF, Context.MODE_PRIVATE).edit();
@@ -174,6 +181,31 @@ public class AppWidgetOne extends AppWidgetProvider {
             editor.remove(ConfigWidget.WIDGET_KEY_VALUE + widgetID);
         }
         editor.commit();
+    }
+
+    public void delWidgetJSON(String id){
+        JSONObject widgetName;
+        String widgetKey = null;
+        Log.d(TAG, "Start del widget"+id);
+        if (allWidget.length()>0){
+            Iterator<String> keysJSON = allWidget.keys();
+            while(keysJSON.hasNext()) {
+                String key = keysJSON.next();
+                try {
+                    widgetName = allWidget.getJSONObject(key);
+                    String widgetId = widgetName.getString("ID");
+                    Log.d(TAG, "widgetId " + widgetId);
+
+                    if(id.equals(widgetId)){
+                        widgetKey = key;
+                        Log.d(TAG, "del widgetId " + widgetId);
+                    }
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+            }
+            allWidget.remove(widgetKey);
+        }
     }
 }
 

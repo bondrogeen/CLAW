@@ -20,7 +20,7 @@
         android:title="@string/mqtt_port" />
     <EditTextPreference
         android:capitalize="words"
-        android:defaultValue="admin"
+        android:defaultValue="myLogin"
         android:inputType="textCapWords"
         android:key="mqtt_login"
         android:maxLines="1"
@@ -29,7 +29,7 @@
         android:title="@string/mqtt_login" />
     <EditTextPreference
         android:capitalize="words"
-        android:defaultValue="pass"
+        android:defaultValue="myPassword"
         android:inputType="textCapWords"
         android:key="mqtt_pass"
         android:maxLines="1"

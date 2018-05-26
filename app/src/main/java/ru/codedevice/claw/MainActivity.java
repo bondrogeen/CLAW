@@ -170,12 +170,14 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         if (id == R.id.action_settings) {
             Intent intent = new Intent(this, SettingsActivity.class);
             startActivity(intent);
-//            return true;
+        }
+        if (id == R.id.action_log) {
+            Intent intent = new Intent(this, AppLogger.class);
+            startActivity(intent);
         }
         if (id == R.id.action_about) {
             Intent intent = new Intent(this, AboutActivity.class);
             startActivity(intent);
-//            return true;
         }
 
         return super.onOptionsItemSelected(item);

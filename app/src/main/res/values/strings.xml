@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">CLAW</string>
+    <string name="app_name">MQTT Android Condrol</string>
 
     <string name="navigation_drawer_open">Open navigation drawer</string>
     <string name="navigation_drawer_close">Close navigation drawer</string>
@@ -119,5 +119,8 @@
     <string name="general_title_timer">Data sending period</string>
     <string name="appwidget_text">Claw</string>
     <string name="add_widget">Add widget</string>
+    <string name="action_log">Log</string>
+    <string name="title_activity_notification">NotificationActivity</string>
+    <string name="large_text"></string>
 
 </resources>

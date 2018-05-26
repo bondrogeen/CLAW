@@ -105,14 +105,13 @@
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
                 <action android:name="android.intent.action.QUICKBOOT_POWERON" />
                 <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
-                <action android:name="android.intent.action.BATTERY_CHANGED"/>
-                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED"/>
-                <action android:name="android.intent.action.ACTION_POWER_CONNECTED"/>
-                <action android:name="android.intent.action.ACTION_BATTERY_LOW"/>
-                <action android:name="android.intent.action.ACTION_BATTERY_OKAY"/>
+                <action android:name="android.intent.action.BATTERY_CHANGED" />
+                <action android:name="android.intent.action.ACTION_POWER_DISCONNECTED" />
+                <action android:name="android.intent.action.ACTION_POWER_CONNECTED" />
+                <action android:name="android.intent.action.ACTION_BATTERY_LOW" />
+                <action android:name="android.intent.action.ACTION_BATTERY_OKAY" />
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
                 <action android:name="ru.codedevice.claw.ACTION_WIDGET_RECEIVER" />
-
             </intent-filter>
         </receiver>
 
@@ -129,10 +128,15 @@
         </receiver>
 
         <activity android:name=".ConfigWidget">
-        <intent-filter>
-            <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
-        </intent-filter>
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
         </activity>
+        <activity android:name=".AppLogger" />
+        <activity
+            android:name=".NotificationActivity"
+            android:label="@string/title_activity_notification"
+            android:theme="@style/AppTheme.NoActionBar"></activity>
     </application>
 
 </manifest>
