@@ -30,13 +30,13 @@ public class AppReceiver extends BroadcastReceiver {
         Log.i(TAG, "Action : " + action);
         i = new Intent(context, AppMqttService.class);
         if (action.equals("android.net.conn.CONNECTIVITY_CHANGE") && general_startNet){
-            if (checkInternet(context)){
-                Log.i(TAG, "yes internet");
-                context.startService(i);
-            }else{
-                Log.i(TAG, "no internet");
-                context.stopService(i);
-            }
+//            if (checkInternet(context)){
+//                Log.i(TAG, "yes internet");
+//                context.startService(i);
+//            }else{
+//                Log.i(TAG, "no internet");
+//                context.stopService(i);
+//            }
         }
 
         if (general_startBoot && action.equals("android.intent.action.BOOT_COMPLETED")
@@ -47,7 +47,39 @@ public class AppReceiver extends BroadcastReceiver {
 
         if (action.equals("android.intent.action.SCREEN_ON")
                 ||action.equals("android.intent.action.SCREEN_OFF")){
-            i.putExtra("status","screen");
+            i.putExtra("statusInit","screen");
+            context.startService(i);
+        }
+        if (action.equals("android.intent.action.BATTERY_CHANGED")){
+            i.putExtras(intent);
+            i.putExtra("statusInit","battery");
+            context.startService(i);
+        }
+
+        if (action.equals("android.intent.action.SMS_RECEIVED")){
+            i.putExtras(intent);
+            i.putExtra("statusInit","sms");
+            context.startService(i);
+        }
+
+        if (action.equals("android.intent.action.BATTERY_LOW")
+                ||action.equals("android.intent.action.BATTERY_OKAY")){
+            i.putExtra("statusInit","batteryStatus");
+            if (action.equals("android.intent.action.BATTERY_OKAY")) {
+                i.putExtra("battery","ok");
+            }else{
+                i.putExtra("battery","low");
+            }
+            context.startService(i);
+        }
+        if (action.equals("android.intent.action.ACTION_POWER_CONNECTED")
+                ||action.equals("android.intent.action.ACTION_POWER_DISCONNECTED")){
+            i.putExtra("statusInit","power");
+            if (action.equals("android.intent.action.ACTION_POWER_CONNECTED")) {
+                i.putExtra("power","connected");
+            }else{
+                i.putExtra("power","disconnected");
+            }
             context.startService(i);
         }
 
@@ -63,7 +95,7 @@ public class AppReceiver extends BroadcastReceiver {
             } catch (NullPointerException e) {
                 Log.e(TAG, "msg = null");
             }
-            i.putExtra("status","widget");
+            i.putExtra("statusInit","widget");
             i.putExtra("widgetName",widgetName);
             i.putExtra("widgetType",widgetType);
             i.putExtra("widgetId",widgetId);

@@ -14,6 +14,7 @@ import android.content.SharedPreferences;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.IBinder;
 import android.os.PowerManager;
 import android.preference.PreferenceManager;
@@ -21,6 +22,7 @@ import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.support.v4.app.NotificationCompat;
+import android.telephony.SmsMessage;
 import android.util.Log;
 import android.widget.Toast;
 import org.eclipse.paho.android.service.MqttAndroidClient;
@@ -66,6 +68,7 @@ public class AppMqttService extends Service implements MqttCallback {
     String serverUri;
     String mqtt_username;
     String mqtt_password;
+    String mqtt_first_topic;
     Boolean run;
     Boolean general_startBoot;
     Boolean tts_OK;
@@ -100,6 +103,13 @@ public class AppMqttService extends Service implements MqttCallback {
     public void initBroadReceiver() {
         IntentFilter filter = new IntentFilter(Intent.ACTION_SCREEN_ON);
         filter.addAction(Intent.ACTION_SCREEN_OFF);
+        filter.addAction(Intent.ACTION_POWER_CONNECTED);
+        filter.addAction(Intent.ACTION_POWER_DISCONNECTED);
+        filter.addAction(Intent.ACTION_BATTERY_LOW);
+        filter.addAction(Intent.ACTION_BATTERY_OKAY);
+        if (settings.getBoolean("send_data_battery", true)){
+            filter.addAction(Intent.ACTION_BATTERY_CHANGED);
+        }
         br = new AppReceiver();
         registerReceiver(br, filter);
     }
@@ -107,6 +117,9 @@ public class AppMqttService extends Service implements MqttCallback {
 
         settings = PreferenceManager.getDefaultSharedPreferences(this);
         clientId = "MAC";
+        if (!settings.getString("mqtt_first_topic", "").equals("")){
+            clientId = settings.getString("mqtt_first_topic", "")+"/"+clientId;
+        }
         mqtt_server = settings.getString("mqtt_server", "");
         mqtt_port = settings.getString("mqtt_port", "");
         serverUri = "tcp://" + mqtt_server + ":" + mqtt_port;
@@ -144,8 +157,9 @@ public class AppMqttService extends Service implements MqttCallback {
         tts = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
-                if (status == TextToSpeech.SUCCESS) {
-                    int result = tts.setLanguage(Locale.getDefault());
+                Locale def_local = Locale.getDefault();
+                if (def_local!=null && status == TextToSpeech.SUCCESS) {
+                    int result = tts.setLanguage(def_local);
                     if (result == TextToSpeech.LANG_MISSING_DATA
                             || result == TextToSpeech.LANG_NOT_SUPPORTED) {
                         Log.e("TTS", "This Language is not supported");
@@ -169,12 +183,12 @@ public class AppMqttService extends Service implements MqttCallback {
 
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "startId :" + startId);
-        Log.d(TAG, "flags :" + flags);
+//        Log.d(TAG, "flags :" + flags);
         Boolean net = checkInternet();
 
         if (intent != null && intent.getExtras() != null) {
-            String status = intent.getStringExtra("status");
-            Log.d(TAG, "status :" + status);
+            String status = intent.getStringExtra("statusInit");
+            Log.d(TAG, "statusInit :" + status);
             switch (status) {
                 case "screen":
                     publish("info/display/status", getDisplay());
@@ -183,6 +197,62 @@ public class AppMqttService extends Service implements MqttCallback {
                     String topic = intent.getStringExtra("topic");
                     String value = intent.getStringExtra("value");
                     publish(topic, value);
+                    break;
+                case "sms":
+//                    String topic = intent.getStringExtra("topic");
+//                    String value = intent.getStringExtra("value");
+
+                    Bundle bundle = intent.getExtras();
+                    if(bundle != null) {
+                        Object[] pdus = (Object[]) bundle.get("pdus");
+                        String format = bundle.getString("format");
+                        SmsMessage[] messages = new SmsMessage[pdus.length];
+                        for(int i = 0; i < pdus.length; i++) {
+                            if(Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                messages[i] = SmsMessage.createFromPdu((byte[]) pdus[i], format);
+                            }else {
+                                messages[i] = SmsMessage.createFromPdu((byte[]) pdus[i]);
+                            }
+                            String senderPhoneNo = messages[i].getDisplayOriginatingAddress();
+                            Toast.makeText(context, "Message " + messages[0].getMessageBody() + ", from " + senderPhoneNo, Toast.LENGTH_SHORT).show();
+                        }
+                    }
+
+//                    publish(topic, value);
+                    break;
+                case "power":
+                    String power = intent.getStringExtra("power");
+                    publish("info/battery/charging", power);
+                    break;
+                case "batteryStatus":
+                    String battery = intent.getStringExtra("battery");
+                    publish("info/battery/status", battery);
+                    break;
+                case "battery":
+                    int level = intent.getIntExtra("level", -1);
+                    publish("info/battery/level", String.valueOf(level));
+//                    int scale = intent.getIntExtra("scale", -1);
+//                    publish("info/battery/scale", String.valueOf(scale));
+//                    int stat = intent.getIntExtra("status", -1);
+//                    publish("info/battery/status", String.valueOf(stat));
+                    int voltage = intent.getIntExtra("voltage", -1);
+                    publish("info/battery/voltage", String.valueOf(voltage));
+                    int plugtype = intent.getIntExtra("plugged", -1);
+                    String type = "";
+                    if(plugtype==0){
+                        type = "none";
+                    }else if(plugtype==1){
+                        type = "charging";
+                    }else if(plugtype==2){
+                        type = "usb";
+                    }else{
+                        type = String.valueOf(plugtype);
+                    }
+                    publish("info/battery/plugtype", type);
+                    int health = intent.getIntExtra("health", -1);
+                    publish("info/battery/health", String.valueOf(health));
+                    int temperature = intent.getIntExtra("temperature", -1);
+                    publish("info/battery/temperature", String.valueOf(temperature));
                     break;
                 case "widget":
                     widgetName = intent.getStringExtra("widgetName");
@@ -214,7 +284,8 @@ public class AppMqttService extends Service implements MqttCallback {
                     widgetName = intent.getStringExtra("widgetName");
 
                     try {
-                        wedgetNameJSON = AppWidgetOne.allWidget.getJSONObject(widgetName);
+//                        wedgetNameJSON = AppWidgetOne.allWidget.getJSONObject(widgetName);
+                        wedgetNameJSON = Storage.get("allWidget").getJSONObject(widgetName);
                         widgetId = wedgetNameJSON.getString("ID");
                         widgetType = wedgetNameJSON.getString("TYPE");
                         widgetText = wedgetNameJSON.getString("TEXT");
@@ -332,10 +403,11 @@ public class AppMqttService extends Service implements MqttCallback {
             arrTopic = topic.split("/");
             Log.d(TAG, "topic "+topic);
             Log.d(TAG, "arrTopic "+arrTopic[4]);
-            wedgetNameJSON = AppWidgetOne.allWidget.getJSONObject(arrTopic[4]);
+            Log.d(TAG, "WTF");
+//            wedgetNameJSON = AppWidgetOne.allWidget.getJSONObject(arrTopic[4]);
+            wedgetNameJSON = Storage.get("allWidget").getJSONObject(arrTopic[4]);
             if(wedgetNameJSON!=null){
                 Log.d(TAG, "wedgetNameJSON "+wedgetNameJSON);
-                Log.e(TAG, "wedgetNameJSON !null ");
                 SharedPreferences.Editor editor = sp.edit();
                 if(arrTopic[5].equals("text")){
                     Log.d(TAG, "arrTopic[5].equals(\"text\")");
@@ -355,7 +427,7 @@ public class AppMqttService extends Service implements MqttCallback {
                     publish("comm/widget/"+arrTopic[4]+"/title", "");
                     publish("info/widget/"+arrTopic[4]+"/title", String.valueOf(message));
                 }
-                editor.commit();
+                editor.apply();
                 AppWidgetManager appWidgetManager = AppWidgetManager.getInstance(this);
                 AppWidgetOne.updateAppWidget(this, appWidgetManager, Integer.parseInt(wedgetNameJSON.getString("ID")), sp);
             }
@@ -455,10 +527,12 @@ public class AppMqttService extends Service implements MqttCallback {
         sendBrodecast("disconnect");
     }
 
-//    private void updateInfoWidget(int[] id){
+//    private void updateInfoWidget(){
 //        Intent intent = new Intent(this, AppWidgetOne.class);
+//        AppWidgetManager manager = AppWidgetManager.getInstance(context);
+//        final int[] appWidgetIds = manager.getAppWidgetIds(new ComponentName(context, AppWidgetOne.class));
 //        intent.setAction(AppWidgetManager.ACTION_APPWIDGET_UPDATE);
-//        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, id);
+//        intent.putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, appWidgetIds);
 //        sendBroadcast(intent);
 //    }
 
@@ -481,6 +555,7 @@ public class AppMqttService extends Service implements MqttCallback {
         publish("comm/notification/create", "");
         publish("comm/notification/delete", "");
         publish("comm/notification/alert", "");
+        publish("info/battery/charging", "");
         initWidget();
 
     }
@@ -581,11 +656,26 @@ public class AppMqttService extends Service implements MqttCallback {
         int brightness = 0;
         try {
             brightness = Settings.System.getInt(getContentResolver(), Settings.System.SCREEN_BRIGHTNESS);
+            brightness = (int) Math.round(brightness/2.55);
         } catch (Exception ignored) {
 
         }
         return brightness;
     }
+
+    private void setBrightness(int value){
+        if(value<4){value=4;}
+        if(value>100){value=100;}
+        if (value <=100 && value >=4){
+            int num = (int) Math.round(value*2.55);
+            Log.i("Brightness", String.valueOf(num));
+            Settings.System.putInt(getContentResolver(),Settings.System.SCREEN_BRIGHTNESS_MODE,Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL);
+            Settings.System.putInt(getContentResolver(),Settings.System.SCREEN_BRIGHTNESS,num );
+            publish("info/display/level", String.valueOf(value));
+            publish("info/display/mode", "manual");
+        }
+    }
+
     private int getTimeOff(){
         int timeOff = 0;
         try {
@@ -631,19 +721,6 @@ public class AppMqttService extends Service implements MqttCallback {
         publish("info/display/mode", getBrightnessMode());
     }
 
-    private void setBrightness(int value){
-        if(value<4){value=4;}
-        if(value>100){value=100;}
-        if (value <=100 && value >=4){
-            int num = (int) Math.round(value*2.55);
-            Log.i("Brightness", String.valueOf(num));
-            Settings.System.putInt(getContentResolver(),Settings.System.SCREEN_BRIGHTNESS_MODE,Settings.System.SCREEN_BRIGHTNESS_MODE_MANUAL);
-            Settings.System.putInt(getContentResolver(),Settings.System.SCREEN_BRIGHTNESS,num );
-            publish("info/display/level", String.valueOf(value));
-            publish("info/display/mode", "manual");
-        }
-    }
-
     private String getDisplay(){
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
         String display;
@@ -673,6 +750,17 @@ public class AppMqttService extends Service implements MqttCallback {
 
     }
 
+    private void batteryInfo(String str){
+//        intent = IntentUtil.getIntentResultFromBroadcast(service, Intent.ACTION_BATTERY_CHANGED);
+
+//        level = intent.getIntExtra("level", -1);
+//        scale = intent.getIntExtra("scale", -1);
+//        status = intent.getIntExtra("status", -1);
+//        voltage = intent.getIntExtra("voltage", -1);
+//        plugtype = intent.getIntExtra("plugged", 0);
+//        health = intent.getIntExtra("health", 0);
+//        temperature = intent.getIntExtra("temperature", 0);
+    }
     private void notificationDel(String str){
         if(str.toLowerCase().equals("all")){
             NotificationManager notificationManager =
@@ -686,6 +774,7 @@ public class AppMqttService extends Service implements MqttCallback {
             }
         }
     }
+
     private void notification(String str){
         Log.i("notification : ", "String  : "+str);
         JSONObject nativeJSON = new JSONObject();

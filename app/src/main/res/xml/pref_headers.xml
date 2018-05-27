@@ -10,6 +10,10 @@
         android:fragment="ru.codedevice.claw.SettingsActivity$GeneralPreferenceFragment"
         android:icon="@drawable/ic_menu_manage"
         android:title="@string/pref_header_general"/>
+    <header
+        android:fragment="ru.codedevice.claw.SettingsActivity$SendDataPreferenceFragment"
+        android:icon="@drawable/ic_menu_send"
+        android:title="@string/pref_header_send_data"/>
 
     <header
         android:fragment="ru.codedevice.claw.SettingsActivity$NotificationPreferenceFragment"

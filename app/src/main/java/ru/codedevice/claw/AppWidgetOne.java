@@ -103,6 +103,7 @@ public class AppWidgetOne extends AppWidgetProvider {
             tempWidget.put("TEXT",widgetText);
             tempWidget.put("TYPE",widgetType);
             allWidget.put(widgetName,tempWidget);
+            Storage.put("allWidget",allWidget);
             tempWidget=null;
             tempWidget = new JSONObject();
             Log.e(TAG, "widgetName "+widgetName);
@@ -169,18 +170,19 @@ public class AppWidgetOne extends AppWidgetProvider {
         Log.d(TAG, "onDeleted " + Arrays.toString(appWidgetIds));
         for (int appWidgetId : appWidgetIds) {
             delWidgetJSON(String.valueOf(appWidgetId));
+
+            SharedPreferences.Editor editor = context.getSharedPreferences(
+                    ConfigWidget.WIDGET_PREF, Context.MODE_PRIVATE).edit();
+            for (int widgetID : appWidgetIds) {
+                editor.remove(ConfigWidget.WIDGET_KEY_TEXT + widgetID);
+                editor.remove(ConfigWidget.WIDGET_KEY_TITLE + widgetID);
+                editor.remove(ConfigWidget.WIDGET_KEY_TYPE + widgetID);
+                editor.remove(ConfigWidget.WIDGET_KEY_NAME + widgetID);
+                editor.remove(ConfigWidget.WIDGET_KEY_VALUE + widgetID);
+            }
+            editor.apply();
         }
-        // Удаляем Preferences
-        SharedPreferences.Editor editor = context.getSharedPreferences(
-                ConfigWidget.WIDGET_PREF, Context.MODE_PRIVATE).edit();
-        for (int widgetID : appWidgetIds) {
-            editor.remove(ConfigWidget.WIDGET_KEY_TEXT + widgetID);
-            editor.remove(ConfigWidget.WIDGET_KEY_TITLE + widgetID);
-            editor.remove(ConfigWidget.WIDGET_KEY_TYPE + widgetID);
-            editor.remove(ConfigWidget.WIDGET_KEY_NAME + widgetID);
-            editor.remove(ConfigWidget.WIDGET_KEY_VALUE + widgetID);
-        }
-        editor.commit();
+        Storage.put("allWidget",allWidget);
     }
 
     public void delWidgetJSON(String id){

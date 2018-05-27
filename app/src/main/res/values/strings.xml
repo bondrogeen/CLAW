@@ -122,5 +122,9 @@
     <string name="action_log">Log</string>
     <string name="title_activity_notification">NotificationActivity</string>
     <string name="large_text"></string>
+    <string name="pref_header_send_data">Send Options</string>
+    <string name="send_data_title_battery">Battery</string>
+    <string name="send_data_summary_battery">Battery status information</string>
+    <string name="mqtt_first_topic">Start topic</string>
 
 </resources>
